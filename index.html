@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transfer Moldova</title>
+    <!-- Подключаем официальный скрипт Telegram Web App -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-color: #12161f;
+            --card-bg: #1c2230;
+            --accent: #3b82f6;
+            --text-color: #ffffff;
+            --text-secondary: #9ca3af;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 16px;
+        }
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+        }
+        h2 {
+            font-size: 22px;
+            margin-bottom: 8px;
+        }
+        p.subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        select, input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid #2a3447;
+            background-color: #12161f;
+            color: white;
+            font-size: 15px;
+            margin-bottom: 14px;
+            box-sizing: border-box;
+        }
+        .btn-submit {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .btn-submit:active {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🚗 Заказ трансфера</h2>
+    <p class="subtitle">Быстро, комфортно и надежно по Молдове, Украине и Европе.</p>
+
+    <div class="card">
+        <label for="serviceType">Услуга</label>
+        <select id="serviceType">
+            <option value="transfer">Пассажирский трансфер</option>
+            <option value="delivery">Курьерская доставка (посылка)</option>
+        </select>
+
+        <label for="route">Маршрут</label>
+        <select id="route">
+            <option value="Chisinau - Kyiv">Кишинев ➔ Киев</option>
+            <option value="Chisinau - Odesa">Кишинев ➔ Одесса</option>
+            <option value="Chisinau - Bucharest">Кишинев ➔ Бухарест</option>
+            <option value="Custom">Другой маршрут (уточнить)</option>
+        </select>
+
+        <label for="date">Дата поездки</label>
+        <input type="date" id="date">
+
+        <label for="comment">Комментарий или адрес</label>
+        <input type="text" id="comment" placeholder="Откуда забрать, детали...">
+    </div>
+
+    <button class="btn-submit" id="submitBtn">Оформить заявку</button>
+</div>
+
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.expand(); // Растягиваем на весь экран в Telegram
+
+    document.getElementById('submitBtn').addEventListener('click', function() {
+        const serviceType = document.getElementById('serviceType').value;
+        const route = document.getElementById('route').value;
+        const date = document.getElementById('date').value;
+        const comment = document.getElementById('comment').value;
+
+        const data = {
+            user_id: tg.initDataUnsafe?.user?.id || 'unknown',
+            username: tg.initDataUnsafe?.user?.username || 'no_username',
+            service: serviceType,
+            route: route,
+            date: date,
+            comment: comment
+        };
+
+        // Отправляем данные боту и закрываем приложение
+        tg.sendData(JSON.stringify(data));
+    });
+</script>
+
+</body>
+</html>
