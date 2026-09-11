@@ -7,92 +7,88 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg-color: #f3f4f6;
-            --card-bg: #ffffff;
-            --text-main: #111827;
-            --text-secondary: #6b7280;
-            --accent-dark: #111827;
-            --accent-blue: #2563eb;
-            --border-color: #e5e7eb;
+            --bg-gradient: linear-gradient(180deg, #0f172a 0%, #1e1b4b 50%, #172554 100%);
+            --card-bg: rgba(30, 41, 59, 0.75);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --accent-blue: #3b82f6;
+            --text-main: #ffffff;
+            --text-secondary: #94a3b8;
         }
 
         * { box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
+            background: var(--bg-gradient);
+            background-attachment: fixed;
             color: var(--text-main);
             margin: 0;
-            padding: 0;
-            padding-bottom: 90px;
-        }
-
-        /* Имитация карты на фоне сверху */
-        .map-header {
-            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-            height: 220px;
-            position: relative;
-            background-image: radial-gradient(#94a3b8 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
-
-        /* Главная карточка ввода маршрута */
-        .route-box {
-            background-color: var(--card-bg);
-            border-radius: 24px;
-            margin: -60px 16px 16px 16px;
             padding: 16px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-            position: relative;
-            z-index: 10;
+            padding-bottom: 90px;
+            min-height: 100vh;
         }
 
-        .route-row {
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .app-header {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            position: relative;
+            margin-bottom: 16px;
+        }
+        .app-title {
+            font-size: 18px;
+            font-weight: 800;
+            background: linear-gradient(90deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .badge {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #60a5fa;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
         }
 
-        .route-inputs {
-            flex-grow: 1;
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
         }
 
         .input-group {
             display: flex;
             align-items: center;
             padding: 10px 0;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            position: relative;
         }
         .input-group:last-child { border-bottom: none; }
-        .input-icon { font-size: 16px; margin-right: 12px; }
-        .input-content { flex-grow: 1; }
+        .input-icon { font-size: 18px; margin-right: 12px; }
+        .input-content { flex-grow: 1; position: relative; }
         .input-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; }
         .input-value { font-size: 15px; font-weight: 600; color: var(--text-main); border: none; outline: none; width: 100%; background: transparent; margin-top: 2px; }
-
-        .swap-btn {
-            background: #f8fafc;
-            border: 1px solid var(--border-color);
-            width: 36px; height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            position: absolute;
-            right: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-        }
+        .input-value::placeholder { color: rgba(148, 163, 184, 0.5); }
 
         .geo-btn {
-            background: rgba(37, 99, 235, 0.1);
-            border: none;
-            color: var(--accent-blue);
-            border-radius: 8px;
-            padding: 4px 8px;
-            font-size: 11px;
-            font-weight: 700;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+            border-radius: 10px;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 600;
             cursor: pointer;
         }
 
@@ -100,48 +96,43 @@
             font-size: 13px;
             font-weight: 700;
             color: var(--text-secondary);
-            margin: 20px 16px 10px 16px;
+            margin: 20px 4px 10px 4px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
-        /* Список направлений */
         .route-item {
-            background-color: var(--card-bg);
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
             border-radius: 16px;
-            margin: 0 16px 10px 16px;
             padding: 14px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            margin-bottom: 10px;
             cursor: pointer;
-            border: 2px solid transparent;
             transition: all 0.2s;
         }
         .route-item:active { transform: scale(0.98); }
-        .route-item.selected { border-color: var(--accent-blue); background: #eff6ff; }
+        .route-item.selected { border-color: var(--accent-blue); background: rgba(59, 130, 246, 0.2); }
         .route-info h4 { margin: 0 0 3px 0; font-size: 15px; font-weight: 700; }
         .route-info p { margin: 0; font-size: 12px; color: var(--text-secondary); }
-        .route-price { text-align: right; }
-        .route-price .from { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; }
-        .route-price .cost { font-size: 16px; font-weight: 800; color: var(--text-main); }
+        .route-price .cost { font-size: 16px; font-weight: 800; color: #60a5fa; }
 
-        /* Карточки автомобилей (Шаг 2) */
         .car-card {
-            background-color: var(--card-bg);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
             border-radius: 20px;
-            margin: 0 16px 12px 16px;
             padding: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            border: 2px solid transparent;
+            margin-bottom: 12px;
             cursor: pointer;
         }
-        .car-card.selected { border-color: var(--accent-blue); background: #eff6ff; }
+        .car-card.selected { border-color: var(--accent-blue); background: rgba(59, 130, 246, 0.2); }
         .car-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
         .car-title h4 { margin: 0 0 2px 0; font-size: 16px; font-weight: 800; }
         .car-title p { margin: 0; font-size: 12px; color: var(--text-secondary); }
-        .car-price { font-size: 18px; font-weight: 900; color: var(--text-main); }
+        .car-price { font-size: 18px; font-weight: 900; color: #60a5fa; }
         .car-time { font-size: 11px; color: var(--text-secondary); text-align: right; }
         
         .car-specs {
@@ -149,24 +140,23 @@
             gap: 12px;
             font-size: 12px;
             color: var(--text-secondary);
-            border-top: 1px solid var(--border-color);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
             padding-top: 10px;
         }
 
-        /* Нижняя панель */
         .bottom-bar {
             position: fixed;
             bottom: 0; left: 0; right: 0;
             padding: 12px 16px;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid var(--border-color);
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
             display: flex;
             gap: 10px;
             z-index: 100;
         }
         .btn-main {
-            background-color: var(--accent-dark);
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
             color: white;
             border: none;
             flex-grow: 1;
@@ -175,13 +165,13 @@
             font-size: 16px;
             font-weight: 700;
             cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
             text-align: center;
         }
         .btn-secondary {
-            background: #f1f5f9;
-            color: var(--text-main);
-            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid var(--card-border);
             padding: 16px 20px;
             border-radius: 14px;
             font-size: 15px;
@@ -192,39 +182,61 @@
         .screen { display: none; }
         .screen.active { display: block; animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Подсказки поиска городов */
+        .suggestions-box {
+            position: absolute;
+            top: 100%; left: 0; right: 0;
+            background: #1e293b;
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            z-index: 50;
+            max-height: 160px;
+            overflow-y: auto;
+            display: none;
+        }
+        .suggestion-item {
+            padding: 10px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: white;
+        }
+        .suggestion-item:hover { background: rgba(59, 130, 246, 0.3); }
     </style>
 </head>
 <body>
 
 <div class="container">
     
-    <!-- ЭКРАН 1: ВЫБОР МАРШРУТА -->
+    <!-- ЭКРАН 1: МАРШРУТ -->
     <div id="screen-1" class="screen active">
-        <div class="map-header"></div>
+        <div class="app-header">
+            <div class="app-title">🚗 TRANSFER MOLDOVA</div>
+            <div class="badge">VIP & Comfort</div>
+        </div>
 
-        <div class="route-box">
-            <div class="route-row">
-                <div class="route-inputs">
-                    <div class="input-group">
-                        <div class="input-icon">🟢</div>
-                        <div class="input-content">
-                            <div class="input-label">Откуда</div>
-                            <input type="text" class="input-value" id="fromLocation" value="Кишинёв">
-                        </div>
-                        <button class="geo-btn" onclick="requestGeo()">GPS</button>
-                    </div>
-                    <div class="input-group">
-                        <div class="input-icon">📍</div>
-                        <div class="input-content">
-                            <div class="input-label">Куда (город, адрес)</div>
-                            <input type="text" class="input-value" id="toLocation" placeholder="Например: Днепр, Киев, Одесса..." oninput="calculateRoute()">
-                        </div>
-                    </div>
+        <div class="card">
+            <div class="input-group">
+                <div class="input-icon">🟢</div>
+                <div class="input-content">
+                    <div class="input-label">Откуда</div>
+                    <input type="text" class="input-value" id="fromLocation" value="Кишинёв">
                 </div>
-                <div class="swap-btn" onclick="swapLocations()">↕</div>
+                <button class="geo-btn" onclick="requestGeo()">GPS</button>
+            </div>
+            
+            <div class="input-group">
+                <div class="input-icon">📍</div>
+                <div class="input-content">
+                    <div class="input-label">Куда (введите любой город)</div>
+                    <input type="text" class="input-value" id="toLocation" placeholder="Например: Днепр, Киев, Варшава..." oninput="searchCity(this.value)">
+                    <div id="suggestions" class="suggestions-box"></div>
+                </div>
             </div>
 
-            <div class="input-group" style="margin-top: 8px;">
+            <div class="input-group">
                 <div class="input-icon">📅</div>
                 <div class="input-content">
                     <div class="input-label">Дата поездки</div>
@@ -234,25 +246,20 @@
         </div>
 
         <div class="section-title">Популярные направления</div>
-        
-        <div class="route-item" onclick="selectPreset('Киев', 470, '6 ч 20 мин', this)">
-            <div class="route-info"><h4>Кишинёв ➔ Киев</h4><p>470 км • ~6 ч 20 мин • столица</p></div>
-            <div class="route-price"><div class="from">от</div><div class="cost" id="p-kyiv">376 $</div></div>
+
+        <div class="route-item" onclick="setPreset('Киев', 470, '6 ч 20 мин', this)">
+            <div class="route-info"><h4>Кишинёв ➔ Киев</h4><p>470 км • ~6 ч 20 мин</p></div>
+            <div class="route-price"><div class="cost">376 $</div></div>
         </div>
 
-        <div class="route-item" onclick="selectPreset('Днепр', 658, '10 ч 34 мин', this)">
-            <div class="route-info"><h4>Кишинёв ➔ Днепр</h4><p>658 км • ~10 ч 34 мин • город</p></div>
-            <div class="route-price"><div class="from">от</div><div class="cost" id="p-dnipro">526 $</div></div>
+        <div class="route-item" onclick="setPreset('Днепр', 658, '10 ч 34 мин', this)">
+            <div class="route-info"><h4>Кишинёв ➔ Днепр</h4><p>658 км • ~10 ч 34 мин</p></div>
+            <div class="route-price"><div class="cost">526 $</div></div>
         </div>
 
-        <div class="route-item" onclick="selectPreset('Одесса', 110, '2 ч 30 мин', this)">
-            <div class="route-info"><h4>Кишинёв ➔ Одесса</h4><p>110 км • ~2 ч 30 мин • граница</p></div>
-            <div class="route-price"><div class="from">от</div><div class="cost" id="p-odesa">88 $</div></div>
-        </div>
-
-        <div class="route-item" onclick="selectPreset('Бухарест', 450, '6 ч 00 мин', this)">
-            <div class="route-info"><h4>Кишинёв ➔ Бухарест</h4><p>450 км • ~6 ч 00 мин • ЕС</p></div>
-            <div class="route-price"><div class="from">от</div><div class="cost" id="p-bucharest">360 $</div></div>
+        <div class="route-item" onclick="setPreset('Одесса', 110, '2 ч 30 мин', this)">
+            <div class="route-info"><h4>Кишинёв ➔ Одесса</h4><p>110 км • ~2 ч 30 мин</p></div>
+            <div class="route-price"><div class="cost">88 $</div></div>
         </div>
 
         <div class="bottom-bar">
@@ -260,72 +267,46 @@
         </div>
     </div>
 
-    <!-- ЭКРАН 2: ВЫБОР АВТО И РАСЧЕТ ЦЕНЫ -->
+    <!-- ЭКРАН 2: ВЫБОР АВТО -->
     <div id="screen-2" class="screen">
-        <div class="map-header" style="height: 140px;">
-            <div style="padding: 16px; font-weight: 800; font-size: 16px;" id="routeTitlePreview">Кишинёв ➔ Днепр</div>
-            <div style="padding: 0 16px; font-size: 13px; color: var(--text-secondary);" id="routeDistanceInfo">658 км • ~10 ч 34 мин</div>
+        <div class="app-header">
+            <div class="app-title" id="routeTitlePreview">Кишинёв ➔ Днепр</div>
+            <div class="badge" id="routeDistanceInfo">658 км</div>
         </div>
 
-        <div style="padding: 16px 0;">
-            <div class="section-title" style="margin-top: 0;">Доступные варианты</div>
+        <div class="section-title" style="margin-top: 0;">Доступные автомобили</div>
 
-            <!-- ЭКОНОМ -->
-            <div class="car-card selected" onclick="selectCarClass('Эконом (Toyota Prius+)', 0.8, this)">
-                <div class="car-top">
-                    <div class="car-title">
-                        <h4>Toyota Prius+</h4>
-                        <p>Эконом • Гибрид • White</p>
-                    </div>
-                    <div>
-                        <div class="car-price" id="price-econ">527 $</div>
-                        <div class="car-time" id="time-info1">~10 ч 34 мин</div>
-                    </div>
-                </div>
-                <div class="car-specs">
-                    <span>👤 до 4 мест</span>
-                    <span>🧳 2 багажа</span>
-                    <span style="color: #f59e0b;">★ 5.0</span>
+        <div class="car-card selected" onclick="selectCarClass('Эконом (Toyota Prius+)', 0.8, this)">
+            <div class="car-top">
+                <div class="car-title"><h4>Toyota Prius+</h4><p>Эконом • Гибрид</p></div>
+                <div>
+                    <div class="car-price" id="price-econ">527 $</div>
+                    <div class="car-time" id="time-info1">~10 ч 34 мин</div>
                 </div>
             </div>
+            <div class="car-specs"><span>👤 до 4 мест</span><span>🧳 2 багажа</span><span style="color: #f59e0b;">★ 5.0</span></div>
+        </div>
 
-            <!-- КОМФОРТ -->
-            <div class="car-card" onclick="selectCarClass('Комфорт (Ford Fusion)', 0.9, this)">
-                <div class="car-top">
-                    <div class="car-title">
-                        <h4>Ford Fusion</h4>
-                        <p>Комфорт • Sedan • Black</p>
-                    </div>
-                    <div>
-                        <div class="car-price" id="price-comf">592 $</div>
-                        <div class="car-time" id="time-info2">~10 ч 34 мин</div>
-                    </div>
-                </div>
-                <div class="car-specs">
-                    <span>👤 до 4 мест</span>
-                    <span>🧳 3 багажа</span>
-                    <span style="color: #f59e0b;">★ 5.0</span>
+        <div class="car-card" onclick="selectCarClass('Комфорт (Ford Fusion)', 0.9, this)">
+            <div class="car-top">
+                <div class="car-title"><h4>Ford Fusion</h4><p>Комфорт • Sedan</p></div>
+                <div>
+                    <div class="car-price" id="price-comf">592 $</div>
+                    <div class="car-time" id="time-info2">~10 ч 34 мин</div>
                 </div>
             </div>
+            <div class="car-specs"><span>👤 до 4 мест</span><span>🧳 3 багажа</span><span style="color: #f59e0b;">★ 5.0</span></div>
+        </div>
 
-            <!-- ПРЕМИУМ -->
-            <div class="car-card" onclick="selectCarClass('Премиум (Lexus ES VII)', 1.1, this)">
-                <div class="car-top">
-                    <div class="car-title">
-                        <h4>Lexus ES VII</h4>
-                        <p>Премиум Бизнес • Silver</p>
-                    </div>
-                    <div>
-                        <div class="car-price" id="price-prem">723 $</div>
-                        <div class="car-time" id="time-info3">~10 ч 34 мин</div>
-                    </div>
-                </div>
-                <div class="car-specs">
-                    <span>👤 до 4 мест</span>
-                    <span>🧳 2 багажа</span>
-                    <span style="color: #f59e0b;">★ 5.0</span>
+        <div class="car-card" onclick="selectCarClass('Премиум (Lexus ES VII)', 1.1, this)">
+            <div class="car-top">
+                <div class="car-title"><h4>Lexus ES VII</h4><p>Премиум Бизнес</p></div>
+                <div>
+                    <div class="car-price" id="price-prem">723 $</div>
+                    <div class="car-time" id="time-info3">~10 ч 34 мин</div>
                 </div>
             </div>
+            <div class="car-specs"><span>👤 до 4 мест</span><span>🧳 2 багажа</span><span style="color: #f59e0b;">★ 5.0</span></div>
         </div>
 
         <div class="bottom-bar">
@@ -338,7 +319,7 @@
     <div id="screen-3" class="screen">
         <div style="text-align: center; padding: 80px 20px;">
             <div style="font-size: 64px; margin-bottom: 16px;">✅</div>
-            <h2>Заявка оформлена!</h2>
+            <h2>Заявка принята!</h2>
             <p style="color: var(--text-secondary); margin-top: 8px;">Данные отправлены диспетчеру. Мы свяжемся с вами в Telegram.</p>
         </div>
     </div>
@@ -349,15 +330,16 @@
     const tg = window.Telegram.WebApp;
     tg.expand();
 
-    // База городов с расстояниями от Кишинева (по аналогии с Waze / картами)
-    const citiesDatabase = {
+    const CHIȘINĂU_LAT = 47.0105;
+    const CHIȘINĂU_LON = 28.8638;
+
+    const presetCities = {
         "киев": { km: 470, time: "6 ч 20 мин", name: "Киев" },
         "днепр": { km: 658, time: "10 ч 34 мин", name: "Днепр" },
         "одесса": { km: 110, time: "2 ч 30 мин", name: "Одесса" },
         "бухарест": { km: 450, time: "6 ч 00 мин", name: "Бухарест" },
         "винница": { km: 305, time: "5 ч 00 мин", name: "Винница" },
-        "отачь": { km: 165, time: "4 ч 00 мин", name: "Отачь" },
-        "паланка": { km: 110, time: "1 ч 30 мин", name: "Паланка" }
+        "отачь": { km: 165, time: "4 ч 00 мин", name: "Отачь" }
     };
 
     let currentRoute = {
@@ -369,65 +351,79 @@
         price: 526
     };
 
-    // Автоматический пересчет цен на пресетах в реальном времени при загрузке
-    function updatePresetPrices() {
-        for (let key in citiesDatabase) {
-            let item = citiesDatabase[key];
-            let priceEcon = Math.round(item.km * 0.8);
-            let el = document.getElementById(`p-${key === 'киев' ? 'kyiv' : key === 'днепр' ? 'dnipro' : key === 'одесса' ? 'odesa' : 'bucharest'}`);
-            if (el) el.innerText = priceEcon + " $";
-        }
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return Math.round(R * c * 1.25);
     }
-    updatePresetPrices();
 
-    function selectPreset(cityName, km, time, element) {
+    let searchTimeout;
+    function searchCity(query) {
+        clearTimeout(searchTimeout);
+        const box = document.getElementById('suggestions');
+        if (query.length < 2) {
+            box.style.display = 'none';
+            return;
+        }
+
+        const lower = query.toLowerCase();
+        if (presetCities[lower]) {
+            currentRoute.to = presetCities[lower].name;
+            currentRoute.km = presetCities[lower].km;
+            currentRoute.time = presetCities[lower].time;
+            box.style.display = 'none';
+            return;
+        }
+
+        searchTimeout = setTimeout(() => {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`)
+                .then(res => res.json())
+                .then(data => {
+                    box.innerHTML = '';
+                    if (data.length > 0) {
+                        box.style.display = 'block';
+                        data.forEach(place => {
+                            const div = document.createElement('div');
+                            div.className = 'suggestion-item';
+                            div.innerText = place.display_name;
+                            div.onclick = () => {
+                                document.getElementById('toLocation').value = place.name;
+                                currentRoute.to = place.name;
+                                const distKm = calculateDistance(CHIȘINĂU_LAT, CHIȘINĂU_LON, parseFloat(place.lat), parseFloat(place.lon));
+                                currentRoute.km = distKm > 20 ? distKm : 50;
+                                const hours = (currentRoute.km / 65).toFixed(1);
+                                currentRoute.time = `${Math.floor(hours)} ч ${Math.round((hours % 1) * 60)} мин`;
+                                box.style.display = 'none';
+                            };
+                            box.appendChild(div);
+                        });
+                    } else { box.style.display = 'none'; }
+                })
+                .catch(() => { box.style.display = 'none'; });
+        }, 400);
+    }
+
+    function setPreset(cityName, km, time, element) {
         document.querySelectorAll('.route-item').forEach(el => el.classList.remove('selected'));
-        element.classList.add('selected');
+        if(element) element.classList.add('selected');
         document.getElementById('toLocation').value = cityName;
         currentRoute.to = cityName;
         currentRoute.km = km;
         currentRoute.time = time;
     }
 
-    function calculateRoute() {
-        const val = document.getElementById('toLocation').value.toLowerCase().trim();
-        if (citiesDatabase[val]) {
-            currentRoute.to = citiesDatabase[val].name;
-            currentRoute.km = citiesDatabase[val].km;
-            currentRoute.time = citiesDatabase[val].time;
-        } else if(val.length > 2) {
-            // Если ввели кастомный город, которого нет в базе — считаем базово по 500 км или по длине строки для примера
-            currentRoute.to = document.getElementById('toLocation').value;
-            currentRoute.km = 500; 
-            currentRoute.time = "~8 ч 00 мин";
-        }
-    }
-
-    function swapLocations() {
-        const fromInput = document.getElementById('fromLocation');
-        const toInput = document.getElementById('toLocation');
-        let temp = fromInput.value;
-        fromInput.value = toInput.value;
-        toInput.value = temp;
-    }
-
     function goToCars() {
         const date = document.getElementById('tripDate').value;
         const toVal = document.getElementById('toLocation').value;
         
-        if (!toVal) {
-            alert('Пожалуйста, введите пункт назначения ("Куда")!');
-            return;
-        }
-        if (!date) {
-            alert('Пожалуйста, выберите дату поездки!');
-            return;
-        }
+        if (!toVal) { alert('Пожалуйста, введите пункт назначения!'); return; }
+        if (!date) { alert('Пожалуйста, выберите дату поездки!'); return; }
 
-        // Если пользователь ввел вручную, проверим базу
-        calculateRoute();
+        if(!currentRoute.km) currentRoute.km = 500;
 
-        // Считаем цены по тарифам за км: Эконом 0.8$, Комфорт 0.9$, Премиум 1.1$
         let pEcon = Math.round(currentRoute.km * 0.8);
         let pComf = Math.round(currentRoute.km * 0.9);
         let pPrem = Math.round(currentRoute.km * 1.1);
@@ -441,9 +437,8 @@
         document.getElementById('time-info3').innerText = "~" + currentRoute.time;
 
         document.getElementById('routeTitlePreview').innerText = `Кишинёв ➔ ${currentRoute.to}`;
-        document.getElementById('routeDistanceInfo').innerText = `${currentRoute.km} км • ~${currentRoute.time}`;
+        document.getElementById('routeDistanceInfo').innerText = `${currentRoute.km} км`;
 
-        // Обновляем кнопку отправки по умолчанию (эконом)
         currentRoute.price = pEcon;
         document.getElementById('finalSubmitBtn').innerText = `Отправить заявку • ${pEcon} $`;
 
@@ -458,7 +453,6 @@
         currentRoute.car = carName;
         currentRoute.rate = ratePerKm;
         currentRoute.price = Math.round(currentRoute.km * ratePerKm);
-        
         document.getElementById('finalSubmitBtn').innerText = `Отправить заявку • ${currentRoute.price} $`;
     }
 
@@ -470,9 +464,7 @@
     function requestGeo() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    document.getElementById('fromLocation').value = `GPS: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
-                },
+                (pos) => { document.getElementById('fromLocation').value = `GPS: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`; },
                 () => { alert('Не удалось получить геопозицию.'); }
             );
         }
@@ -486,7 +478,7 @@
             service: currentRoute.car,
             route: `${from} ➔ ${currentRoute.to} (${currentRoute.km} км)`,
             date: date,
-            comment: `Расчет по калькулятору (${currentRoute.rate}$/км)`,
+            comment: `Авторасчет (${currentRoute.rate}$/км)`,
             price: currentRoute.price + ' $'
         };
 
