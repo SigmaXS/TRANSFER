@@ -9,7 +9,7 @@ from aiohttp import web
 # Токен твоего бота
 TOKEN = "8951598738:AAFal8Yqbmh49Adc2nFTzHVBFMESo2rda6I"
 
-# Получаем порт от Railway (или ставим 8080 для локального запуска)
+# Получаем порт от Railway
 PORT = int(os.environ.get("PORT", 8080))
 
 bot = Bot(token=TOKEN)
@@ -17,9 +17,8 @@ dp = Dispatcher()
 
 # Обработчик команды /start
 async def cmd_start(message: types.Message):
-    # Railway выдаст публичный URL для твоего сервиса, 
-    # здесь мы берем адрес из переменной окружения или подставляем локальный для теста
-    web_app_url = os.environ.get("WEB_APP_URL", f"http://localhost:{PORT}/")
+    # Жестко прописанная ссылка на твое веб-приложение в Railway
+    web_app_url = "https://transfer-production-f20b.up.railway.app"
     
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -61,7 +60,6 @@ async def web_server():
 
 async def main():
     logging.basicConfig(level=logging.INFO)
-    # Запускаем и веб-сервер, и бота одновременно
     await asyncio.gather(
         web_server(),
         dp.start_polling(bot)
