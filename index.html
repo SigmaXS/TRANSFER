@@ -8,16 +8,14 @@
     <style>
         :root {
             --bg-gradient: linear-gradient(180deg, #0f172a 0%, #1e1b4b 50%, #172554 100%);
-            --card-bg: rgba(30, 41, 59, 0.75);
-            --card-border: rgba(255, 255, 255, 0.1);
+            --card-bg: rgba(30, 41, 59, 0.8);
+            --card-border: rgba(255, 255, 255, 0.12);
             --accent-blue: #3b82f6;
             --text-main: #ffffff;
             --text-secondary: #94a3b8;
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -25,7 +23,7 @@
             background-attachment: fixed;
             color: var(--text-main);
             margin: 0;
-            padding: 12px;
+            padding: 16px;
             padding-bottom: 90px;
             min-height: 100vh;
         }
@@ -35,85 +33,43 @@
             margin: 0 auto;
         }
 
-        /* Шапка */
         .app-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 14px;
-            padding: 0 4px;
+            margin-bottom: 16px;
         }
         .app-title {
             font-size: 18px;
             font-weight: 800;
-            letter-spacing: 0.5px;
             background: linear-gradient(90deg, #60a5fa, #c084fc);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        .badge {
-            background: rgba(59, 130, 246, 0.2);
-            border: 1px solid rgba(59, 130, 246, 0.4);
-            color: #60a5fa;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 4px 10px;
-            border-radius: 20px;
-        }
 
-        /* Карточка ввода */
+        /* Карточки и инпуты */
         .card {
             background: var(--card-bg);
             backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
             border: 1px solid var(--card-border);
             border-radius: 20px;
-            padding: 14px;
-            margin-bottom: 14px;
+            padding: 16px;
+            margin-bottom: 16px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
         }
 
         .input-group {
             display: flex;
             align-items: center;
-            padding: 8px 0;
+            padding: 10px 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            position: relative;
         }
-        .input-group:last-child {
-            border-bottom: none;
-        }
-        .input-icon {
-            font-size: 16px;
-            margin-right: 10px;
-            min-width: 24px;
-            text-align: center;
-        }
-        .input-content {
-            flex-grow: 1;
-        }
-        .input-label {
-            font-size: 10px;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-        }
-        .input-value {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-main);
-            border: none;
-            outline: none;
-            width: 100%;
-            background: transparent;
-            margin-top: 2px;
-        }
-        .input-value::placeholder {
-            color: rgba(148, 163, 184, 0.5);
-        }
+        .input-group:last-child { border-bottom: none; }
+        .input-icon { font-size: 18px; margin-right: 12px; }
+        .input-content { flex-grow: 1; }
+        .input-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+        .input-value { font-size: 15px; font-weight: 600; color: var(--text-main); border: none; outline: none; width: 100%; background: transparent; margin-top: 2px; }
 
-        /* Кнопка геопозиции */
         .geo-btn {
             background: rgba(59, 130, 246, 0.15);
             border: 1px solid rgba(59, 130, 246, 0.3);
@@ -123,166 +79,116 @@
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            transition: background 0.2s;
-        }
-        .geo-btn:active {
-            background: rgba(59, 130, 246, 0.3);
         }
 
-        /* Направления */
         .section-title {
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 700;
             color: var(--text-secondary);
-            margin: 16px 4px 8px 4px;
+            margin: 16px 4px 10px 4px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
-        .routes-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .route-item {
+        /* Выбор направлений и авто */
+        .select-card {
             background: var(--card-bg);
-            backdrop-filter: blur(12px);
             border: 1px solid var(--card-border);
-            border-radius: 14px;
-            padding: 12px 14px;
+            border-radius: 16px;
+            padding: 14px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 10px;
             cursor: pointer;
             transition: all 0.2s;
         }
-        .route-item:active {
-            transform: scale(0.98);
-        }
-        .route-item.selected {
+        .select-card.selected {
             border-color: var(--accent-blue);
-            background: rgba(59, 130, 246, 0.15);
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+            background: rgba(59, 130, 246, 0.2);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
         }
-        .route-info h4 {
-            margin: 0 0 2px 0;
-            font-size: 14px;
-            font-weight: 700;
-        }
-        .route-info p {
-            margin: 0;
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-        .route-price {
-            text-align: right;
-        }
-        .route-price .cost {
-            font-size: 15px;
-            font-weight: 800;
-            color: #60a5fa;
-        }
+        .select-info h4 { margin: 0 0 3px 0; font-size: 15px; font-weight: 700; }
+        .select-info p { margin: 0; font-size: 12px; color: var(--text-secondary); }
+        .price-tag { font-size: 16px; font-weight: 800; color: #60a5fa; }
 
-        /* Класс автомобиля */
-        .car-card {
+        /* Опции (ребенок, питомец, багаж) */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .option-chip {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
             border-radius: 14px;
-            padding: 12px 14px;
+            padding: 12px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 8px;
+            gap: 10px;
             cursor: pointer;
-        }
-        .car-card.selected {
-            border-color: var(--accent-blue);
-            background: rgba(59, 130, 246, 0.15);
-        }
-        .car-details h4 {
-            margin: 0 0 2px 0;
             font-size: 13px;
-            font-weight: 700;
+            font-weight: 600;
         }
-        .car-details p {
-            margin: 0;
-            font-size: 11px;
-            color: var(--text-secondary);
+        .option-chip.active {
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.2);
         }
+        .option-chip input { accent-color: var(--accent-blue); width: 18px; height: 18px; }
 
-        /* Фиксированная панель отправки */
+        /* Кнопки навигации */
         .bottom-bar {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 10px 14px;
+            bottom: 0; left: 0; right: 0;
+            padding: 14px;
             background: rgba(15, 23, 42, 0.9);
             backdrop-filter: blur(20px);
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             display: flex;
-            gap: 8px;
+            gap: 10px;
             z-index: 100;
         }
-        .comment-input {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--card-border);
-            border-radius: 12px;
-            padding: 0 12px;
-            font-size: 13px;
-            color: white;
-            flex-grow: 1;
-            outline: none;
-            height: 44px;
-        }
-        .btn-submit {
+        .btn-main {
             background: linear-gradient(135deg, #2563eb, #3b82f6);
             color: white;
             border: none;
-            padding: 0 20px;
-            border-radius: 12px;
-            font-size: 14px;
+            width: 100%;
+            padding: 15px;
+            border-radius: 14px;
+            font-size: 16px;
             font-weight: 700;
             cursor: pointer;
-            height: 44px;
             box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
-            white-space: nowrap;
-        }
-        .btn-submit:active {
-            opacity: 0.8;
-        }
-
-        /* Экраны */
-        .screen {
-            display: none;
-        }
-        .screen.active {
-            display: block;
-        }
-
-        /* Успешно */
-        .success-container {
             text-align: center;
-            padding: 80px 20px;
         }
-        .success-icon {
-            font-size: 64px;
-            margin-bottom: 16px;
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
         }
+
+        .screen { display: none; animation: fadeIn 0.3s ease-out; }
+        .screen.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        .success-box { text-align: center; padding: 60px 20px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <!-- ЭКРАН ЗАКАЗА -->
-    <div id="screen-main" class="screen active">
+    
+    <!-- ШАГ 1: МАРШРУТ И ДАТА -->
+    <div id="step-1" class="screen active">
         <div class="app-header">
             <div class="app-title">🚗 TRANSFER MOLDOVA</div>
-            <div class="badge">VIP & Comfort</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">Шаг 1 из 3</div>
         </div>
 
         <div class="card">
@@ -290,19 +196,17 @@
                 <div class="input-icon">🟢</div>
                 <div class="input-content">
                     <div class="input-label">Откуда забрать</div>
-                    <input type="text" class="input-value" id="fromLocation" value="Кишинёв" placeholder="Укажите адрес...">
+                    <input type="text" class="input-value" id="fromLocation" value="Кишинёв" placeholder="Адрес или город">
                 </div>
-                <button class="geo-btn" onclick="requestGeolocation()">📍 GPS</button>
+                <button class="geo-btn" onclick="requestGeo()">📍 GPS</button>
             </div>
-            
             <div class="input-group">
                 <div class="input-icon">📍</div>
                 <div class="input-content">
                     <div class="input-label">Куда едем</div>
-                    <input type="text" class="input-value" id="toLocation" placeholder="Выберите ниже или введите">
+                    <input type="text" class="input-value" id="toLocation" placeholder="Выберите ниже">
                 </div>
             </div>
-
             <div class="input-group">
                 <div class="input-icon">📅</div>
                 <div class="input-content">
@@ -313,138 +217,219 @@
         </div>
 
         <div class="section-title">Популярные направления</div>
-        <div class="routes-grid">
-            <div class="route-item" onclick="selectRoute('Кишинёв ➔ Киев', '400 $', this)">
-                <div class="route-info">
-                    <h4>Кишинёв ➔ Киев</h4>
-                    <p>470 км • ~6 ч 20 мин</p>
-                </div>
-                <div class="route-price"><div class="cost">400 $</div></div>
-            </div>
+        <div class="select-card" onclick="setRoute('Кишинёв ➔ Киев', 400, this)">
+            <div class="select-info"><h4>Кишинёв ➔ Киев</h4><p>470 км • ~6 ч 20 мин</p></div>
+            <div class="price-tag">от 400 $</div>
+        </div>
+        <div class="select-card" onclick="setRoute('Кишинёв ➔ Одесса', 100, this)">
+            <div class="select-info"><h4>Кишинёв ➔ Одесса</h4><p>110 км • ~2 ч 30 мин</p></div>
+            <div class="price-tag">от 100 $</div>
+        </div>
+        <div class="select-card" onclick="setRoute('Кишинёв ➔ Бухарест', 250, this)">
+            <div class="select-info"><h4>Кишинёв ➔ Бухарест</h4><p>450 км • ~6 ч (ЕС)</p></div>
+            <div class="price-tag">от 250 $</div>
+        </div>
 
-            <div class="route-item" onclick="selectRoute('Кишинёв ➔ Одесса', '100 $', this)">
-                <div class="route-info">
-                    <h4>Кишинёв ➔ Одесса</h4>
-                    <p>110 км • ~2 ч 30 мин</p>
-                </div>
-                <div class="route-price"><div class="cost">100 $</div></div>
-            </div>
+        <div class="bottom-bar">
+            <button class="btn-main" onclick="goToStep(2)">Далее: Выбор авто ➔</button>
+        </div>
+    </div>
 
-            <div class="route-item" onclick="selectRoute('Кишинёв ➔ Бухарест', '250 $', this)">
-                <div class="route-info">
-                    <h4>Кишинёв ➔ Бухарест</h4>
-                    <p>450 км • ~6 ч (ЕС)</p>
+    <!-- ШАГ 2: ВЫБОР АВТОМОБИЛЯ -->
+    <div id="step-2" class="screen">
+        <div class="app-header">
+            <div class="app-title">🚗 Класс автомобиля</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">Шаг 2 из 3</div>
+        </div>
+
+        <div class="select-card selected" onclick="setCar('Эконом (Toyota Prius / Passat)', 0, this)">
+            <div class="select-info">
+                <h4>🟢 Эконом / Гибрид</h4>
+                <p>Toyota Prius, Passat B6 • до 4 мест</p>
+            </div>
+            <div class="price-tag" id="price-econ">100 $</div>
+        </div>
+
+        <div class="select-card" onclick="setCar('Комфорт (Ford Mondeo / Fusion)', 25, this)">
+            <div class="select-info">
+                <h4>🔵 Комфорт</h4>
+                <p>Ford Mondeo Vignale, Fusion • просторный салон</p>
+            </div>
+            <div class="price-tag" id="price-comf">125 $</div>
+        </div>
+
+        <div class="select-card" onclick="setCar('Премиум (Mercedes / BMW / Audi)', 100, this)">
+            <div class="select-info">
+                <h4>🟣 Премиум Бизнес</h4>
+                <p>Mercedes E-Class, BMW 5, Audi A6</p>
+            </div>
+            <div class="price-tag" id="price-prem">200 $</div>
+        </div>
+
+        <div class="bottom-bar">
+            <button class="btn-secondary" onclick="goToStep(1)">Назад</button>
+            <button class="btn-main" onclick="goToStep(3)">Далее: Детали ➔</button>
+        </div>
+    </div>
+
+    <!-- ШАГ 3: ДЕТАЛИ И ОПЦИИ -->
+    <div id="step-3" class="screen">
+        <div class="app-header">
+            <div class="app-title">⚙️ Детали поездки</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">Шаг 3 из 3</div>
+        </div>
+
+        <div class="section-title">Предпочтения и опции</div>
+        <div class="options-grid">
+            <label class="option-chip" onclick="toggleOption(this)">
+                <input type="checkbox" id="opt-child"> 👶 С ребенком (детское кресло)
+            </label>
+            <label class="option-chip" onclick="toggleOption(this)">
+                <input type="checkbox" id="opt-pet"> ペット С питомцем
+            </label>
+            <label class="option-chip" onclick="toggleOption(this)">
+                <input type="checkbox" id="opt-docs"> 📄 Передача документов
+            </label>
+            <label class="option-chip" onclick="toggleOption(this)">
+                <input type="checkbox" id="opt-luggage"> 🧳 Крупный багаж
+            </label>
+        </div>
+
+        <div class="card">
+            <div class="input-group" style="border: none;">
+                <div class="input-content">
+                    <div class="input-label">Комментарий для водителя</div>
+                    <input type="text" class="input-value" id="comment" placeholder="Номер поезда, подъезд, детали...">
                 </div>
-                <div class="route-price"><div class="cost">250 $</div></div>
             </div>
         </div>
 
-        <div class="section-title">Класс автомобиля</div>
-        <div class="car-card selected" onclick="selectCar('Эконом (Toyota Prius / Passat)', this)">
-            <div class="car-details">
-                <h4>Эконом / Гибрид</h4>
-                <p>Toyota Prius, Passat B6</p>
+        <div class="card" style="background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3);">
+            <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 16px;">
+                <span>Итого к оплате:</span>
+                <span id="final-price" style="color: #60a5fa;">400 $</span>
             </div>
-            <div style="font-size: 12px; font-weight: 700; color: #60a5fa;">Стандарт</div>
         </div>
 
-        <div class="car-card" onclick="selectCar('Комфорт (Ford Mondeo / Fusion)', this)">
-            <div class="car-details">
-                <h4>Комфорт</h4>
-                <p>Ford Mondeo Vignale, Fusion</p>
-            </div>
-            <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary);">Премиум</div>
+        <div class="bottom-bar">
+            <button class="btn-secondary" onclick="goToStep(2)">Назад</button>
+            <button class="btn-main" id="submitBtn" onclick="submitOrder()" style="background: linear-gradient(135deg, #10b981, #059669);">✅ Отправить заявку</button>
         </div>
     </div>
 
     <!-- ЭКРАН УСПЕХА -->
-    <div id="screen-success" class="screen">
-        <div class="success-container">
-            <div class="success-icon">✅</div>
-            <h2>Заявка принята!</h2>
-            <p style="color: var(--text-secondary); margin-top: 8px;">Мы получили ваш заказ и свяжемся с вами в Telegram.</p>
+    <div id="step-success" class="screen">
+        <div class="success-box">
+            <div style="font-size: 64px; margin-bottom: 16px;">✅</div>
+            <h2>Заявка успешно отправлена!</h2>
+            <p style="color: var(--text-secondary); margin-top: 8px;">Диспетчер уже получил ваш заказ и свяжется с вами в Telegram.</p>
         </div>
     </div>
-</div>
 
-<!-- НИЖНЯЯ ПАНЕЛЬ -->
-<div class="bottom-bar" id="bottomBar">
-    <input type="text" class="comment-input" id="comment" placeholder="Комментарий (адрес, багаж...)">
-    <button class="btn-submit" id="submitBtn">Заказать</button>
 </div>
 
 <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
 
-    let selectedRoute = "Кишинёв ➔ Киев";
-    let selectedCar = "Эконом (Toyota Prius / Passat)";
+    let orderData = {
+        route: "Кишинёв ➔ Киев",
+        basePrice: 400,
+        car: "Эконом (Toyota Prius / Passat)",
+        carExtra: 0,
+        date: "",
+        from: "Кишинёв",
+        to: "Киев",
+        options: [],
+        comment: ""
+    };
 
-    function selectRoute(route, price, element) {
-        document.querySelectorAll('.route-item').forEach(el => el.classList.remove('selected'));
+    function setRoute(route, price, element) {
+        document.querySelectorAll('#step-1 .select-card').forEach(el => el.classList.remove('selected'));
         element.classList.add('selected');
-        selectedRoute = route;
-        document.getElementById('toLocation').value = route;
+        orderData.route = route;
+        orderData.basePrice = price;
+        orderData.to = route.split('➔')[1].trim();
+        document.getElementById('toLocation').value = orderData.to;
+        
+        // Пересчитываем цены для шага 2
+        document.getElementById('price-econ').innerText = price + ' $';
+        document.getElementById('price-comf').innerText = (price + 25) + ' $';
+        document.getElementById('price-prem').innerText = (price + 100) + ' $';
     }
 
-    function selectCar(car, element) {
-        document.querySelectorAll('.car-card').forEach(el => el.classList.remove('selected'));
+    function setCar(carName, extraPrice, element) {
+        document.querySelectorAll('#step-2 .select-card').forEach(el => el.classList.remove('selected'));
         element.classList.add('selected');
-        selectedCar = car;
+        orderData.car = carName;
+        orderData.carExtra = extraPrice;
     }
 
-    // Функция запроса геопозиции
-    function requestGeolocation() {
+    function toggleOption(element) {
+        const checkbox = element.querySelector('input');
+        // инпут сам переключится, просто меняем класс подсветки
+        setTimeout(() => {
+            if(checkbox.checked) element.classList.add('active');
+            else element.classList.remove('active');
+        }, 10);
+    }
+
+    function goToStep(stepNumber) {
+        if(stepNumber === 2) {
+            orderData.date = document.getElementById('tripDate').value;
+            orderData.from = document.getElementById('fromLocation').value;
+            if(!orderData.date) {
+                alert('Пожалуйста, выберите дату поездки!');
+                return;
+            }
+        }
+        if(stepNumber === 3) {
+            // Обновляем итоговую цену
+            const total = orderData.basePrice + orderData.carExtra;
+            document.getElementById('final-price').innerText = total + ' $';
+        }
+
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        document.getElementById(`step-${stepNumber}`).classList.add('active');
+        window.scrollTo(0,0);
+    }
+
+    function requestGeo() {
         if (navigator.geolocation) {
-            const btn = document.querySelector('.geo-btn');
-            btn.innerText = "⌛";
             navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude.toFixed(4);
-                    const lon = position.coords.longitude.toFixed(4);
-                    document.getElementById('fromLocation').value = `GPS: ${lat}, ${lon}`;
-                    btn.innerText = "📍 GPS";
+                (pos) => {
+                    document.getElementById('fromLocation').value = `GPS: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
                 },
-                (error) => {
-                    alert('Не удалось получить геопозицию. Разрешите доступ в настройках телефона.');
-                    btn.innerText = "📍 GPS";
-                },
-                { timeout: 10000, enableHighAccuracy: true }
+                () => { alert('Не удалось получить геопозицию.'); }
             );
-        } else {
-            alert('Геолокация не поддерживается вашим устройством.');
         }
     }
 
-    document.getElementById('submitBtn').addEventListener('click', function() {
-        const fromLoc = document.getElementById('fromLocation').value;
-        const toLoc = document.getElementById('toLocation').value || selectedRoute;
-        const date = document.getElementById('tripDate').value;
-        const comment = document.getElementById('comment').value;
+    function submitOrder() {
+        const child = document.getElementById('opt-child').checked ? 'С ребенком' : '';
+        const pet = document.getElementById('opt-pet').checked ? 'С питомцем' : '';
+        const docs = document.getElementById('opt-docs').checked ? 'Документы' : '';
+        const luggage = document.getElementById('opt-luggage').checked ? 'Крупный багаж' : '';
+        
+        const opts = [child, pet, docs, luggage].filter(Boolean).join(', ');
+        const commentText = document.getElementById('comment').value;
 
-        if (!date) {
-            alert('Пожалуйста, выберите дату поездки!');
-            return;
-        }
-
-        const data = {
-            service: selectedCar,
-            route: `${fromLoc} ➔ ${toLoc}`,
-            date: date,
-            comment: comment ? comment : 'Без комментариев'
+        const finalPayload = {
+            service: orderData.car,
+            route: `${orderData.from} ➔ ${orderData.to}`,
+            date: orderData.date,
+            comment: `Опции: [${opts || 'Нет'}]. Комментарий: ${commentText || 'Нет'}`,
+            price: orderData.basePrice + orderData.carExtra + ' $'
         };
 
-        document.getElementById('screen-main').classList.remove('active');
-        document.getElementById('screen-success').classList.add('active');
-        document.getElementById('bottomBar').style.display = 'none';
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        document.getElementById('step-success').classList.add('active');
 
         setTimeout(() => {
-            tg.sendData(JSON.stringify(data));
-            setTimeout(() => {
-                tg.close();
-            }, 800);
+            tg.sendData(JSON.stringify(finalPayload));
+            setTimeout(() => { tg.close(); }, 800);
         }, 1500);
-    });
+    }
 </script>
 
 </body>
