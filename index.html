@@ -7,168 +7,453 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg-color: #12161f;
-            --card-bg: #1c2230;
-            --accent: #3b82f6;
-            --text-color: #ffffff;
-            --text-secondary: #9ca3af;
-            --error-color: #ef4444;
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-main: #111827;
+            --text-secondary: #6b7280;
+            --accent: #111827;
+            --accent-color: #2563eb;
+            --border-color: #e5e7eb;
         }
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
-            color: var(--text-color);
+            color: var(--text-main);
             margin: 0;
+            padding: 0;
+            padding-bottom: 80px; /* Место под нижнее меню */
+        }
+
+        /* Шапка с картой-фоном */
+        .header-map {
+            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+            height: 180px;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
             padding: 16px;
-        }
-        .container {
-            max-width: 480px;
-            margin: 0 auto;
-        }
-        h2 {
-            font-size: 22px;
-            margin-bottom: 8px;
-        }
-        p.subtitle {
-            color: var(--text-secondary);
-            font-size: 14px;
-            margin-bottom: 20px;
-        }
-        .card {
-            background-color: var(--card-bg);
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
-        label {
-            display: block;
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin-bottom: 6px;
-        }
-        select, input {
-            width: 100%;
-            padding: 12px;
-            border-radius: 10px;
-            border: 1px solid #2a3447;
-            background-color: #12161f;
-            color: white;
-            font-size: 15px;
-            margin-bottom: 14px;
             box-sizing: border-box;
         }
-        .error-message {
-            color: var(--error-color);
-            font-size: 13px;
-            margin-bottom: 12px;
-            display: none;
+
+        /* Карточка ввода маршрута */
+        .route-card {
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            margin: -20px 16px 16px 16px;
+            padding: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            position: relative;
+            z-index: 10;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .input-group:last-child {
+            border-bottom: none;
+        }
+        .input-icon {
+            font-size: 18px;
+            margin-right: 12px;
+        }
+        .input-content {
+            flex-grow: 1;
+        }
+        .input-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+        .input-value {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-main);
+            border: none;
+            outline: none;
+            width: 100%;
+            background: transparent;
+            margin-top: 2px;
+        }
+
+        /* Секция популярных направлений */
+        .section-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin: 20px 16px 10px 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .route-item {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            margin: 0 16px 10px 16px;
+            padding: 14px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+            border: 2px solid transparent;
+        }
+        .route-item:active {
+            transform: scale(0.98);
+        }
+        .route-item.selected {
+            border-color: var(--accent-color);
+            background-color: #eff6ff;
+        }
+        .route-info h4 {
+            margin: 0 0 4px 0;
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .route-info p {
+            margin: 0;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .route-price {
+            text-align: right;
+        }
+        .route-price .from {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        .route-price .cost {
+            font-size: 17px;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        /* Выбор авто */
+        .car-card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            margin: 0 16px 12px 16px;
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        .car-card.selected {
+            border-color: var(--accent-color);
+            background-color: #eff6ff;
+        }
+        .car-details h4 {
+            margin: 0 0 4px 0;
+            font-size: 15px;
+            font-weight: 700;
+        }
+        .car-details p {
+            margin: 0;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Кнопка отправки */
+        .bottom-bar {
+            position: fixed;
+            bottom: 60px;
+            left: 0;
+            right: 0;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            z-index: 100;
         }
         .btn-submit {
             background-color: var(--accent);
             color: white;
             border: none;
-            width: 100%;
-            padding: 14px;
-            border-radius: 12px;
+            flex-grow: 1;
+            padding: 16px;
+            border-radius: 14px;
             font-size: 16px;
-            font-weight: bold;
+            font-weight: 700;
             cursor: pointer;
-            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
         .btn-submit:active {
             opacity: 0.8;
         }
-        #successScreen {
-            display: none;
+
+        /* Нижняя навигация (таб-бар) */
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background-color: var(--card-bg);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 100;
+        }
+        .tab-item {
             text-align: center;
-            padding-top: 60px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            flex-grow: 1;
+        }
+        .tab-item.active {
+            color: var(--accent-color);
+        }
+        .tab-item span {
+            display: block;
+            font-size: 20px;
+            margin-bottom: 2px;
+        }
+
+        /* Экраны (скрытие/показ) */
+        .screen {
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+        }
+        .screen.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Успешный экран */
+        .success-container {
+            text-align: center;
+            padding: 60px 20px;
         }
         .success-icon {
-            font-size: 70px;
-            margin-bottom: 15px;
+            font-size: 64px;
+            margin-bottom: 16px;
         }
     </style>
 </head>
 <body>
 
-<div class="container" id="formScreen">
-    <h2>🚗 Заказ трансфера</h2>
-    <p class="subtitle">Быстро, комфортно и надежно по Молдове, Украине и Европе.</p>
-
-    <div class="card">
-        <label for="serviceType">Услуга</label>
-        <select id="serviceType">
-            <option value="transfer">Пассажирский трансфер</option>
-            <option value="delivery">Курьерская доставка (посылка)</option>
-        </select>
-
-        <label for="route">Маршрут</label>
-        <select id="route">
-            <option value="Chisinau - Kyiv">Кишинев ➔ Киев</option>
-            <option value="Chisinau - Odesa">Кишинев ➔ Одесса</option>
-            <option value="Chisinau - Bucharest">Кишинев ➔ Бухарест</option>
-            <option value="Custom">Другой маршрут (уточнить)</option>
-        </select>
-
-        <label for="date">Дата поездки</label>
-        <input type="date" id="date">
-
-        <label for="comment">Комментарий или адрес</label>
-        <input type="text" id="comment" placeholder="Откуда забрать, детали...">
-        
-        <div id="errorMsg" class="error-message">⚠️ Пожалуйста, выберите дату поездки!</div>
+<!-- ЭКРАН 1: ГЛАВНАЯ -->
+<div id="screen-main" class="screen active">
+    <div class="header-map">
+        <div style="font-size: 13px; font-weight: 700; background: white; padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+            📍 Молдова, Украина, Европа
+        </div>
     </div>
 
-    <button class="btn-submit" id="submitBtn">Оформить заявку</button>
+    <div class="route-card">
+        <div class="input-group">
+            <div class="input-icon">🟢</div>
+            <div class="input-content">
+                <div class="input-label">Откуда</div>
+                <input type="text" class="input-value" id="fromLocation" value="Кишинёв" placeholder="Город отправления">
+            </div>
+        </div>
+        <div class="input-group">
+            <div class="input-icon">📍</div>
+            <div class="input-content">
+                <div class="input-label">Куда</div>
+                <input type="text" class="input-value" id="toLocation" placeholder="Выберите ниже или введите">
+            </div>
+        </div>
+        <div class="input-group">
+            <div class="input-icon">📅</div>
+            <div class="input-content">
+                <div class="input-label">Дата поездки</div>
+                <input type="date" class="input-value" id="tripDate">
+            </div>
+        </div>
+    </div>
+
+    <div class="section-title">Популярные направления</div>
+
+    <div class="route-item" onclick="selectRoute('Кишинёв ➔ Киев', '400 $', this)">
+        <div class="route-info">
+            <h4>Кишинёв ➔ Киев</h4>
+            <p>470 км • ~6 ч 20 мин • столица</p>
+        </div>
+        <div class="route-price">
+            <div class="from">от</div>
+            <div class="cost">400 $</div>
+        </div>
+    </div>
+
+    <div class="route-item" onclick="selectRoute('Кишинёв ➔ Одесса', '100 $', this)">
+        <div class="route-info">
+            <h4>Кишинёв ➔ Одесса</h4>
+            <p>110 км • ~2 ч 30 мин • граница</p>
+        </div>
+        <div class="route-price">
+            <div class="from">от</div>
+            <div class="cost">100 $</div>
+        </div>
+    </div>
+
+    <div class="route-item" onclick="selectRoute('Кишинёв ➔ Бухарест', '250 $', this)">
+        <div class="route-info">
+            <h4>Кишинёв ➔ Бухарест</h4>
+            <p>450 км • ~6 ч • ЕС</p>
+        </div>
+        <div class="route-price">
+            <div class="from">от</div>
+            <div class="cost">250 $</div>
+        </div>
+    </div>
+
+    <div class="route-item" onclick="selectRoute('Кишинёв ➔ Отачь', '140 $', this)">
+        <div class="route-info">
+            <h4>Кишинёв ➔ Отачь</h4>
+            <p>165 км • ~4 ч • граница</p>
+        </div>
+        <div class="route-price">
+            <div class="from">от</div>
+            <div class="cost">140 $</div>
+        </div>
+    </div>
+
+    <div class="section-title">Класс автомобиля</div>
+    
+    <div class="car-card selected" onclick="selectCar('Эконом (Toyota Prius / Passat)', this)">
+        <div class="car-details">
+            <h4>Эконом / Гибрид</h4>
+            <p>Toyota Prius, Passat B6 • до 4 мест</p>
+        </div>
+        <div style="font-weight: 700; color: var(--accent-color);">Стандарт</div>
+    </div>
+
+    <div class="car-card" onclick="selectCar('Комфорт (Ford Mondeo / Fusion)', this)">
+        <div class="car-details">
+            <h4>Комфорт</h4>
+            <p>Ford Mondeo Vignale, Fusion • повышенный комфорт</p>
+        </div>
+        <div style="font-weight: 700;">+ от цены</div>
+    </div>
+
+    <div class="bottom-bar">
+        <input type="text" id="comment" placeholder="Комментарий (адрес, багаж...)" style="border: 1px solid var(--border-color); border-radius: 12px; padding: 0 12px; font-size: 14px; flex-grow: 1; outline: none;">
+        <button class="btn-submit" id="submitBtn">Заказать</button>
+    </div>
 </div>
 
-<div class="container" id="successScreen">
-    <div class="success-icon">✅</div>
-    <h2>Спасибо за заявку!</h2>
-    <p class="subtitle" style="font-size: 16px; margin-top: 10px;">
-        Ваша заявка успешно отправлена.<br>Мы свяжемся с вами в ближайшее время!
-    </p>
+<!-- ЭКРАН 2: ПОЕЗДКИ -->
+<div id="screen-trips" class="screen">
+    <div style="padding: 20px; text-align: center; margin-top: 40px;">
+        <h2>🧳 Мои поездки</h2>
+        <p style="color: var(--text-secondary);">Здесь будет отображаться история ваших заказов и активные бронирования.</p>
+    </div>
+</div>
+
+<!-- ЭКРАН 3: ПРОФИЛЬ -->
+<div id="screen-profile" class="screen">
+    <div style="padding: 20px; text-align: center; margin-top: 40px;">
+        <h2>👤 Профиль</h2>
+        <p style="color: var(--text-secondary);">Управление аккаунтом, бонусы и контакты службы поддержки.</p>
+    </div>
+</div>
+
+<!-- ЭКРАН 4: УСПЕШНО -->
+<div id="screen-success" class="screen">
+    <div class="success-container">
+        <div class="success-icon">✅</div>
+        <h2>Заявка принята!</h2>
+        <p style="color: var(--text-secondary); margin-top: 8px;">Оператор свяжется с вами в Telegram для подтверждения деталей.</p>
+    </div>
+</div>
+
+<!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ -->
+<div class="tab-bar">
+    <div class="tab-item active" onclick="switchTab('main', this)">
+        <span>🏠</span> Главная
+    </div>
+    <div class="tab-item" onclick="switchTab('trips', this)">
+        <span>🧳</span> Поездки
+    </div>
+    <div class="tab-item" onclick="switchTab('profile', this)">
+        <span>👤</span> Профиль
+    </div>
 </div>
 
 <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
 
-    document.getElementById('submitBtn').addEventListener('click', function() {
-        const serviceType = document.getElementById('serviceType').value;
-        const route = document.getElementById('route').value;
-        const dateInput = document.getElementById('date');
-        const comment = document.getElementById('comment').value;
-        const errorMsg = document.getElementById('errorMsg');
+    let selectedRoute = "Кишинёв ➔ Киев";
+    let selectedCar = "Эконом (Toyota Prius / Passat)";
 
-        // Проверяем, заполнена ли дата (обязательное поле)
-        if (!dateInput.value) {
-            errorMsg.style.display = 'block';
-            dateInput.style.borderColor = '#ef4444';
-            return; // Прерываем отправку, если дата пустая
+    function selectRoute(route, price, element) {
+        document.querySelectorAll('.route-item').forEach(el => el.classList.remove('selected'));
+        element.classList.add('selected');
+        selectedRoute = route;
+        document.getElementById('toLocation').value = route;
+    }
+
+    function selectCar(car, element) {
+        document.querySelectorAll('.car-card').forEach(el => el.classList.remove('selected'));
+        element.classList.add('selected');
+        selectedCar = car;
+    }
+
+    function switchTab(tabName, element) {
+        document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        
+        if (tabName === 'main') {
+            document.getElementById('screen-main').classList.add('active');
+        } else if (tabName === 'trips') {
+            document.getElementById('screen-trips').classList.add('active');
+        } else if (tabName === 'profile') {
+            document.getElementById('screen-profile').classList.add('active');
+        }
+    }
+
+    document.getElementById('submitBtn').addEventListener('click', function() {
+        const fromLoc = document.getElementById('fromLocation').value;
+        const toLoc = document.getElementById('toLocation').value || selectedRoute;
+        const date = document.getElementById('tripDate').value;
+        const comment = document.getElementById('comment').value;
+
+        if (!date) {
+            alert('Пожалуйста, выберите дату поездки!');
+            return;
         }
 
-        errorMsg.style.display = 'none';
-        dateInput.style.borderColor = '#2a3447';
-
         const data = {
-            service: serviceType,
-            route: route,
-            date: dateInput.value,
-            comment: comment || 'Без комментариев'
+            service: selectedCar,
+            route: `${fromLoc} ➔ ${toLoc}`,
+            date: date,
+            comment: comment ? comment : 'Без комментариев'
         };
 
-        // Показываем экран успешной отправки
-        document.getElementById('formScreen').style.display = 'none';
-        document.getElementById('successScreen').style.display = 'block';
+        // Переходим на экран успеха
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        document.getElementById('screen-success').classList.add('active');
+        document.querySelector('.bottom-bar').style.display = 'none';
+        document.querySelector('.tab-bar').style.display = 'none';
 
-        // Отправляем данные боту и через 2 секунды закрываем мини-приложение
         setTimeout(() => {
             tg.sendData(JSON.stringify(data));
             setTimeout(() => {
                 tg.close();
-            }, 500);
+            }, 800);
         }, 1500);
     });
 </script>
