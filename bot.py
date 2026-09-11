@@ -5,14 +5,14 @@ import json
 import asyncpg
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import WebAppInfo, ReplyKeyboardMarkup, KeyboardButton
 from aiohttp import web
 
-# Токен твоего бота и твой Telegram ID (или ID администратора, куда слать уведомления)
+# Токен твоего бота и твой числовой Telegram ID для уведомлений
 TOKEN = "8951598738:AAFal8Yqbmh49Adc2nFTzHVBFMESo2rda6I"
-ADMIN_CHAT_ID = "СЮДА_ВПИШИ_СВОЙ_TELEGRAM_ID" # Можно узнать у @userinfobot
+ADMIN_CHAT_ID = 1657186014
 
-# Подключение к базе данных PostgreSQL на Railway (Railway автоматически создает эту переменную)
+# Подключение к базе данных PostgreSQL на Railway
 DATABASE_URL = os.environ.get("DATABASE_URL")
 PORT = int(os.environ.get("PORT", 8080))
 
@@ -24,46 +24,53 @@ async def init_db():
     if not DATABASE_URL:
         print("DATABASE_URL не найдена!")
         return
-    conn = await asyncpg.connect(DATABASE_URL)
-    await conn.execute('''
-        CREATE TABLE IF NOT EXISTS orders (
-            id SERIAL PRIMARY KEY,
-            user_id BIGINT,
-            username TEXT,
-            service TEXT,
-            route TEXT,
-            trip_date TEXT,
-            comment TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    await conn.close()
+    try:
+        conn = await asyncpg.connect(DATABASE_URL)
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS orders (
+                id SERIAL PRIMARY KEY,
+                user_id BIGINT,
+                username TEXT,
+                service TEXT,
+                route TEXT,
+                trip_date TEXT,
+                comment TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        await conn.close()
+        print("База данных успешно инициализирована!")
+    except Exception as e:
+        print(f"Ошибка инициализации БД: {e}")
 
-# Обработчик команды /start
+# Обработчик команды /start с нижней кнопкой для открытия Web App
 async def cmd_start(message: types.Message):
     web_app_url = "https://transfer-production-f20b.up.railway.app"
     
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
+    # Создаем клавиатуру с кнопкой внизу экрана (как у такси-сервисов)
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
             [
-                InlineKeyboardButton(
-                    text="🚗 Открыть приложение", 
+                KeyboardButton(
+                    text="🚗 Заказать трансфер", 
                     web_app=WebAppInfo(url=web_app_url)
                 )
             ]
-        ]
+        ],
+        resize_keyboard=True,
+        is_persistent=True
     )
     
     await message.answer(
         "👋 Добро пожаловать в TRANSFER MOLDOVA!\n\n"
-        "Откройте приложение, чтобы построить маршрут и оформить заявку.",
+        "Нажмите кнопку ниже, чтобы открыть приложение, построить маршрут и оформить заявку.",
         reply_markup=keyboard
     )
 
-# Обработчик данных из Web App (когда клиент жмет «Оформить заявку»)
+# Обработчик данных из Web App (когда клиент отправляет форму)
 async def handle_web_app_data(message: types.Message):
     try:
-        # Распаковываем JSON, который пришел из сайта
+        # Распаковываем JSON от сайта
         data = json.loads(message.web_app_data.data)
         
         user_id = data.get('user_id')
@@ -73,7 +80,7 @@ async def handle_web_app_data(message: types.Message):
         trip_date = data.get('date')
         comment = data.get('comment')
 
-        # Сохраняем в PostgreSQL
+        # Сохраняем заказ в PostgreSQL
         if DATABASE_URL:
             conn = await asyncpg.connect(DATABASE_URL)
             await conn.execute(
@@ -86,18 +93,8 @@ async def handle_web_app_data(message: types.Message):
             )
             await conn.close()
 
-        # Красивый ответ клиенту
-        await message.answer(
-            "✅ **Ваша заявка успешно принята!**\n\n"
-            f"🛣 Маршрут: {route}\n"
-            f"📅 Дата: {trip_date}\n"
-            f"💬 Детали: {comment}\n\n"
-            "Оператор свяжется с вами в ближайшее время.",
-            parse_mode="Markdown"
-        )
-
         # Отправляем уведомление тебе (админу) в личный чат
-        if ADMIN_CHAT_ID and ADMIN_CHAT_ID != "СЮДА_ВПИШИ_СВОЙ_TELEGRAM_ID":
+        if ADMIN_CHAT_ID:
             admin_text = (
                 "🚨 **Новый заказ трансфера!**\n\n"
                 f"👤 Клиент: @{username} (ID: `{user_id}`)\n"
@@ -110,7 +107,6 @@ async def handle_web_app_data(message: types.Message):
 
     except Exception as e:
         print(f"Ошибка при обработке заказа: {e}")
-        await message.answer("⚠️ Произошла ошибка при сохранении заявки. Попробуйте еще раз.")
 
 dp.message.register(cmd_start, Command("start"))
 dp.message.register(handle_web_app_data)
@@ -130,7 +126,7 @@ async def web_server():
 
 async def main():
     logging.basicConfig(level=logging.INFO)
-    await init_db() # Инициализируем БД при старте
+    await init_db()
     await asyncio.gather(
         web_server(),
         dp.start_polling(bot)
