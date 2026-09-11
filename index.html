@@ -209,7 +209,7 @@
     <div id="screen-1" class="screen active">
         <div class="app-header">
             <div class="app-title">🚗 TRANSFER MOLDOVA</div>
-            <div class="badge">Без ПМР (через Атаки)</div>
+            <div class="badge">VIP & Comfort</div>
         </div>
 
         <div class="card">
@@ -240,25 +240,25 @@
             </div>
         </div>
 
-        <div class="section-title">Популярные направления (в объезд ПМР)</div>
+        <div class="section-title">Популярные направления</div>
 
         <div class="route-item" onclick="setPreset('Киев', 520, '7 ч 30 мин', this)">
-            <div class="route-info"><h4>Кишинёв ➔ Киев</h4><p>520 км • через Атаки • хорошие дороги</p></div>
+            <div class="route-info"><h4>Кишинёв ➔ Киев</h4><p>470 км • комфортная поездка</p></div>
             <div class="route-price"><div class="cost">416 $</div></div>
         </div>
 
         <div class="route-item" onclick="setPreset('Днепр', 710, '11 ч 30 мин', this)">
-            <div class="route-info"><h4>Кишинёв ➔ Днепр</h4><p>710 км • в обход ПМР</p></div>
+            <div class="route-info"><h4>Кишинёв ➔ Днепр</h4><p>658 км • дальний трансфер</p></div>
             <div class="route-price"><div class="cost">568 $</div></div>
         </div>
 
         <div class="route-item" onclick="setPreset('Ужгород', 748, '10 ч 00 мин', this)">
-            <div class="route-info"><h4>Кишинёв ➔ Ужгород</h4><p>748 км • северный маршрут</p></div>
+            <div class="route-info"><h4>Кишинёв ➔ Ужгород</h4><p>748 км • западное направление</p></div>
             <div class="route-price"><div class="cost">598 $</div></div>
         </div>
 
         <div class="route-item" onclick="setPreset('Одесса', 180, '3 ч 30 мин', this)">
-            <div class="route-info"><h4>Кишинёв ➔ Одесса</h4><p>180 км • через Паланку</p></div>
+            <div class="route-info"><h4>Кишинёв ➔ Одесса</h4><p>180 км • быстрый выезд</p></div>
             <div class="route-price"><div class="cost">144 $</div></div>
         </div>
 
@@ -330,7 +330,6 @@
     const tg = window.Telegram.WebApp;
     tg.expand();
 
-    // Проверенная база реальных расстояний в обход Приднестровья
     const verifiedRoutes = {
         "киев": { km: 520, time: "7 ч 30 мин", name: "Киев" },
         "днепр": { km: 710, time: "11 ч 30 мин", name: "Днепр" },
@@ -357,7 +356,6 @@
             currentRoute.km = verifiedRoutes[lower].km;
             currentRoute.time = verifiedRoutes[lower].time;
         } else if (lower.length > 2) {
-            // Если ввели другой город, даем базовый расчет с учетом обхода ПМР (умножаем прямое расстояние на безопасный коэффициент 1.45)
             currentRoute.to = query;
             currentRoute.km = 550;
             currentRoute.time = "~8 ч 30 мин";
@@ -395,7 +393,7 @@
         document.getElementById('time-info3').innerText = "~" + currentRoute.time;
 
         document.getElementById('routeTitlePreview').innerText = `Кишинёв ➔ ${currentRoute.to}`;
-        document.getElementById('routeDistanceInfo').innerText = `${currentRoute.km} км (обход ПМР)`;
+        document.getElementById('routeDistanceInfo').innerText = `${currentRoute.km} км`;
 
         currentRoute.price = pEcon;
         document.getElementById('finalSubmitBtn').innerText = `Отправить заявку • ${pEcon} $`;
@@ -434,7 +432,7 @@
 
         const payload = {
             service: currentRoute.car,
-            route: `${from} ➔ ${currentRoute.to} (${currentRoute.km} км в обход ПМР)`,
+            route: `${from} ➔ ${currentRoute.to} (${currentRoute.km} км)`,
             date: date,
             comment: `Расчет по километражу (${currentRoute.rate}$/км)`,
             price: currentRoute.price + ' $'
