@@ -5,7 +5,7 @@ import json
 import asyncpg
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import WebAppInfo, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import WebAppInfo, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from aiohttp import web
 
 # Токен твоего бота и твой числовой Telegram ID для уведомлений
@@ -68,7 +68,7 @@ async def cmd_start(message: types.Message):
 # Обработчик данных из Web App
 async def handle_web_app_data(message: types.Message):
     try:
-        # Распаковываем JSON от сайта (маршрут, дата, комментарий)
+        # Распаковываем JSON от сайта
         data = json.loads(message.web_app_data.data)
         
         service = data.get('service')
@@ -76,14 +76,14 @@ async def handle_web_app_data(message: types.Message):
         trip_date = data.get('date')
         comment = data.get('comment')
 
-        # ГАРАНТИЯ: Берем ID и Username напрямую из Telegram-профиля того, кто нажал кнопку!
+        # Берем ID и Username напрямую из Telegram-профиля того, кто нажал кнопку
         user_id = message.from_user.id
         username = message.from_user.username
         
         if not username:
-            username = "Без юзернейма"
+            client_display = f"ID: {user_id}"
         else:
-            username = f"@{username}"
+            client_display = f"@{username}"
 
         # Сохраняем заказ в PostgreSQL
         if DATABASE_URL:
@@ -94,21 +94,34 @@ async def handle_web_app_data(message: types.Message):
                 VALUES ($1, $2, $3, $4, $5, $6)
                 ''',
                 int(user_id),
-                username, service, route, trip_date, comment
+                client_display, service, route, trip_date, comment
             )
             await conn.close()
 
-        # Отправляем уведомление тебе (админу) в личный чат
+        # Создаем красивую кнопку прямо под сообщением для связи с клиентом
+        inline_keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="💬 Написать клиенту", 
+                        url=f"tg://user?id={user_id}"
+                    )
+                ]
+            ]
+        )
+
+        # Текст уведомления для тебя
         if ADMIN_CHAT_ID:
             admin_text = (
                 "🚨 Новый заказ трансфера!\n\n"
-                f"👤 Клиент: {username} (ID: {user_id})\n"
+                f"👤 Клиент: {client_display}\n"
                 f"🛠 Услуга: {service}\n"
                 f"🛣 Маршрут: {route}\n"
                 f"📅 Дата: {trip_date}\n"
                 f"💬 Комментарий: {comment}"
             )
-            await bot.send_message(ADMIN_CHAT_ID, admin_text)
+            # Отправляем сообщение вместе с инлайн-кнопкой
+            await bot.send_message(ADMIN_CHAT_ID, admin_text, reply_markup=inline_keyboard)
 
     except Exception as e:
         print(f"Ошибка при обработке заказа: {e}")
