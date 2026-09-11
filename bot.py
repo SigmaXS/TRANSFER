@@ -42,10 +42,11 @@ async def init_db():
     except Exception as e:
         print(f"Ошибка инициализации БД: {e}")
 
-# Обработчик команды /start
+# Обработчик команды /start с красивым описанием и кнопкой
 async def cmd_start(message: types.Message):
     web_app_url = "https://transfer-production-f20b.up.railway.app"
     
+    # Кнопка внизу экрана (меню)
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -58,17 +59,33 @@ async def cmd_start(message: types.Message):
         resize_keyboard=True,
         is_persistent=True
     )
-    
-    await message.answer(
-        "👋 Добро пожаловать в TRANSFER MOLDOVA!\n\n"
-        "Нажмите кнопку ниже, чтобы открыть приложение, построить маршрут и оформить заявку.",
-        reply_markup=keyboard
+
+    # Инлайн-кнопка для быстрого открытия прямо из сообщения (как на фото)
+    inline_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🚗 Открыть приложение", 
+                    web_app=WebAppInfo(url=web_app_url)
+                )
+            ]
+        ]
     )
+    
+    welcome_text = (
+        "<b>Что умеет этот бот?</b>\n\n"
+        "🟡 <b>Добро пожаловать в Transfer</b> — ваш надёжный личный трансфер!\n\n"
+        "🚗 Заберём вас из любой точки и доставим туда, куда нужно: по <b>Молдове</b> 🇲🇩, в <b>Украину</b> 🇺🇦 или <b>Румынию</b> 🇷🇴.\n\n"
+        "Выберите маршрут, посмотрите доступные автомобили и цену — всё прямо в приложении."
+    )
+    
+    await message.answer(welcome_text, parse_mode="HTML", reply_markup=inline_kb)
+    # Отправляем также клавиатуру меню вниз
+    await message.answer("Воспользуйтесь кнопкой меню внизу для быстрого доступа:", reply_markup=keyboard)
 
 # Обработчик данных из Web App
 async def handle_web_app_data(message: types.Message):
     try:
-        # Распаковываем JSON от сайта
         data = json.loads(message.web_app_data.data)
         
         service = data.get('service')
@@ -76,7 +93,6 @@ async def handle_web_app_data(message: types.Message):
         trip_date = data.get('date')
         comment = data.get('comment')
 
-        # Берем ID и Username напрямую из Telegram-профиля того, кто нажал кнопку
         user_id = message.from_user.id
         username = message.from_user.username
         
@@ -98,7 +114,7 @@ async def handle_web_app_data(message: types.Message):
             )
             await conn.close()
 
-        # Создаем красивую кнопку прямо под сообщением для связи с клиентом
+        # Кнопка связи с клиентом
         inline_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -110,18 +126,16 @@ async def handle_web_app_data(message: types.Message):
             ]
         )
 
-        # Текст уведомления для тебя
         if ADMIN_CHAT_ID:
             admin_text = (
-                "🚨 Новый заказ трансфера!\n\n"
+                "🚨 **Новый заказ трансфера!**\n\n"
                 f"👤 Клиент: {client_display}\n"
-                f"🛠 Услуга: {service}\n"
+                f"🛠 Авто/Услуга: {service}\n"
                 f"🛣 Маршрут: {route}\n"
                 f"📅 Дата: {trip_date}\n"
                 f"💬 Комментарий: {comment}"
             )
-            # Отправляем сообщение вместе с инлайн-кнопкой
-            await bot.send_message(ADMIN_CHAT_ID, admin_text, reply_markup=inline_keyboard)
+            await bot.send_message(ADMIN_CHAT_ID, admin_text, parse_mode="Markdown", reply_markup=inline_keyboard)
 
     except Exception as e:
         print(f"Ошибка при обработке заказа: {e}")
@@ -144,7 +158,7 @@ async def web_server():
 async def main():
     logging.basicConfig(level=logging.INFO)
     await init_db()
-    await asyncio.gather(
+    asyncio.gather(
         web_server(),
         dp.start_polling(bot)
     )
