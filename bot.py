@@ -93,17 +93,17 @@ async def handle_web_app_data(message: types.Message):
             )
             await conn.close()
 
-        # Отправляем уведомление тебе (админу) в личный чат
+        # Отправляем уведомление тебе (админу) в личный чат (без разметки, чтобы избежать ошибок)
         if ADMIN_CHAT_ID:
             admin_text = (
-                "🚨 **Новый заказ трансфера!**\n\n"
-                f"👤 Клиент: @{username} (ID: `{user_id}`)\n"
+                "🚨 Новый заказ трансфера!\n\n"
+                f"👤 Клиент: @{username} (ID: {user_id})\n"
                 f"🛠 Услуга: {service}\n"
                 f"🛣 Маршрут: {route}\n"
                 f"📅 Дата: {trip_date}\n"
                 f"💬 Комментарий: {comment}"
             )
-            await bot.send_message(ADMIN_CHAT_ID, admin_text, parse_mode="Markdown")
+            await bot.send_message(ADMIN_CHAT_ID, admin_text)
 
     except Exception as e:
         print(f"Ошибка при обработке заказа: {e}")
