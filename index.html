@@ -183,7 +183,6 @@
         .screen.active { display: block; animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Подсказки поиска городов */
         .suggestions-box {
             position: absolute;
             top: 100%; left: 0; right: 0;
@@ -204,6 +203,13 @@
             color: white;
         }
         .suggestion-item:hover { background: rgba(59, 130, 246, 0.3); }
+        
+        .loading-text {
+            font-size: 12px;
+            color: #60a5fa;
+            margin-top: 4px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -214,7 +220,7 @@
     <div id="screen-1" class="screen active">
         <div class="app-header">
             <div class="app-title">🚗 TRANSFER MOLDOVA</div>
-            <div class="badge">VIP & Comfort</div>
+            <div class="badge">VIP & Waze Route</div>
         </div>
 
         <div class="card">
@@ -231,7 +237,8 @@
                 <div class="input-icon">📍</div>
                 <div class="input-content">
                     <div class="input-label">Куда (введите любой город)</div>
-                    <input type="text" class="input-value" id="toLocation" placeholder="Например: Днепр, Киев, Варшава..." oninput="searchCity(this.value)">
+                    <input type="text" class="input-value" id="toLocation" placeholder="Например: Ужгород, Киев, Днепр..." oninput="searchCity(this.value)">
+                    <div id="loadingRoute" class="loading-text">🔄 Расчет маршрута по дорогам...</div>
                     <div id="suggestions" class="suggestions-box"></div>
                 </div>
             </div>
@@ -247,19 +254,19 @@
 
         <div class="section-title">Популярные направления</div>
 
-        <div class="route-item" onclick="setPreset('Киев', 470, '6 ч 20 мин', this)">
+        <div class="route-item" onclick="setPreset('Киев', 470, '6 ч 20 мин', 30.5234, 50.4501, this)">
             <div class="route-info"><h4>Кишинёв ➔ Киев</h4><p>470 км • ~6 ч 20 мин</p></div>
             <div class="route-price"><div class="cost">376 $</div></div>
         </div>
 
-        <div class="route-item" onclick="setPreset('Днепр', 658, '10 ч 34 мин', this)">
-            <div class="route-info"><h4>Кишинёв ➔ Днепр</h4><p>658 км • ~10 ч 34 мин</p></div>
-            <div class="route-price"><div class="cost">526 $</div></div>
+        <div class="route-item" onclick="setPreset('Ужгород', 748, '10 ч 00 мин', 22.2871, 48.6208, this)">
+            <div class="route-info"><h4>Кишинёв ➔ Ужгород</h4><p>748 км • ~10 ч 00 мин</p></div>
+            <div class="route-price"><div class="cost">598 $</div></div>
         </div>
 
-        <div class="route-item" onclick="setPreset('Одесса', 110, '2 ч 30 мин', this)">
-            <div class="route-info"><h4>Кишинёв ➔ Одесса</h4><p>110 км • ~2 ч 30 мин</p></div>
-            <div class="route-price"><div class="cost">88 $</div></div>
+        <div class="route-item" onclick="setPreset('Днепр', 658, '10 ч 34 мин', 35.0462, 48.4647, this)">
+            <div class="route-info"><h4>Кишинёв ➔ Днепр</h4><p>658 км • ~10 ч 34 мин</p></div>
+            <div class="route-price"><div class="cost">526 $</div></div>
         </div>
 
         <div class="bottom-bar">
@@ -270,8 +277,8 @@
     <!-- ЭКРАН 2: ВЫБОР АВТО -->
     <div id="screen-2" class="screen">
         <div class="app-header">
-            <div class="app-title" id="routeTitlePreview">Кишинёв ➔ Днепр</div>
-            <div class="badge" id="routeDistanceInfo">658 км</div>
+            <div class="app-title" id="routeTitlePreview">Кишинёв ➔ Ужгород</div>
+            <div class="badge" id="routeDistanceInfo">748 км</div>
         </div>
 
         <div class="section-title" style="margin-top: 0;">Доступные автомобили</div>
@@ -280,8 +287,8 @@
             <div class="car-top">
                 <div class="car-title"><h4>Toyota Prius+</h4><p>Эконом • Гибрид</p></div>
                 <div>
-                    <div class="car-price" id="price-econ">527 $</div>
-                    <div class="car-time" id="time-info1">~10 ч 34 мин</div>
+                    <div class="car-price" id="price-econ">598 $</div>
+                    <div class="car-time" id="time-info1">~10 ч 00 мин</div>
                 </div>
             </div>
             <div class="car-specs"><span>👤 до 4 мест</span><span>🧳 2 багажа</span><span style="color: #f59e0b;">★ 5.0</span></div>
@@ -291,8 +298,8 @@
             <div class="car-top">
                 <div class="car-title"><h4>Ford Fusion</h4><p>Комфорт • Sedan</p></div>
                 <div>
-                    <div class="car-price" id="price-comf">592 $</div>
-                    <div class="car-time" id="time-info2">~10 ч 34 мин</div>
+                    <div class="car-price" id="price-comf">673 $</div>
+                    <div class="car-time" id="time-info2">~10 ч 00 мин</div>
                 </div>
             </div>
             <div class="car-specs"><span>👤 до 4 мест</span><span>🧳 3 багажа</span><span style="color: #f59e0b;">★ 5.0</span></div>
@@ -302,8 +309,8 @@
             <div class="car-top">
                 <div class="car-title"><h4>Lexus ES VII</h4><p>Премиум Бизнес</p></div>
                 <div>
-                    <div class="car-price" id="price-prem">723 $</div>
-                    <div class="car-time" id="time-info3">~10 ч 34 мин</div>
+                    <div class="car-price" id="price-prem">823 $</div>
+                    <div class="car-time" id="time-info3">~10 ч 00 мин</div>
                 </div>
             </div>
             <div class="car-specs"><span>👤 до 4 мест</span><span>🧳 2 багажа</span><span style="color: #f59e0b;">★ 5.0</span></div>
@@ -311,7 +318,7 @@
 
         <div class="bottom-bar">
             <button class="btn-secondary" onclick="goBackTo1()">Назад</button>
-            <button class="btn-main" id="finalSubmitBtn" onclick="submitOrder()">Отправить заявку • 527 $</button>
+            <button class="btn-main" id="finalSubmitBtn" onclick="submitOrder()">Отправить заявку • 598 $</button>
         </div>
     </div>
 
@@ -333,31 +340,41 @@
     const CHIȘINĂU_LAT = 47.0105;
     const CHIȘINĂU_LON = 28.8638;
 
-    const presetCities = {
-        "киев": { km: 470, time: "6 ч 20 мин", name: "Киев" },
-        "днепр": { km: 658, time: "10 ч 34 мин", name: "Днепр" },
-        "одесса": { km: 110, time: "2 ч 30 мин", name: "Одесса" },
-        "бухарест": { km: 450, time: "6 ч 00 мин", name: "Бухарест" },
-        "винница": { km: 305, time: "5 ч 00 мин", name: "Винница" },
-        "отачь": { km: 165, time: "4 ч 00 мин", name: "Отачь" }
-    };
-
     let currentRoute = {
-        to: "Днепр",
-        km: 658,
-        time: "10 ч 34 мин",
+        to: "Ужгород",
+        km: 748,
+        time: "10 ч 00 мин",
         car: "Эконом (Toyota Prius+)",
         rate: 0.8,
-        price: 526
+        price: 598,
+        lat: 22.2871,
+        lon: 48.6208
     };
 
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371;
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return Math.round(R * c * 1.25);
+    // Точный расчет автомобильного маршрута через OSRM API (как в навигаторах)
+    function fetchRealRoadRoute(lat, lon, cityName) {
+        const loading = document.getElementById('loadingRoute');
+        loading.style.display = 'block';
+
+        const url = `https://router.project-osrm.org/route/v1/driving/${CHIȘINĂU_LON},${CHIȘINĂU_LAT};${lon},${lat}?overview=false`;
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                loading.style.display = 'none';
+                if (data.routes && data.routes.length > 0) {
+                    const route = data.routes[0];
+                    currentRoute.km = Math.round(route.distance / 1000); // Переводим метры в км
+                    
+                    const hours = Math.floor(route.duration / 3600);
+                    const minutes = Math.round((route.duration % 3600) / 60);
+                    currentRoute.time = `${hours} ч ${minutes} мин`;
+                    currentRoute.to = cityName;
+                }
+            })
+            .catch(() => {
+                loading.style.display = 'none';
+            });
     }
 
     let searchTimeout;
@@ -365,15 +382,6 @@
         clearTimeout(searchTimeout);
         const box = document.getElementById('suggestions');
         if (query.length < 2) {
-            box.style.display = 'none';
-            return;
-        }
-
-        const lower = query.toLowerCase();
-        if (presetCities[lower]) {
-            currentRoute.to = presetCities[lower].name;
-            currentRoute.km = presetCities[lower].km;
-            currentRoute.time = presetCities[lower].time;
             box.style.display = 'none';
             return;
         }
@@ -391,12 +399,8 @@
                             div.innerText = place.display_name;
                             div.onclick = () => {
                                 document.getElementById('toLocation').value = place.name;
-                                currentRoute.to = place.name;
-                                const distKm = calculateDistance(CHIȘINĂU_LAT, CHIȘINĂU_LON, parseFloat(place.lat), parseFloat(place.lon));
-                                currentRoute.km = distKm > 20 ? distKm : 50;
-                                const hours = (currentRoute.km / 65).toFixed(1);
-                                currentRoute.time = `${Math.floor(hours)} ч ${Math.round((hours % 1) * 60)} мин`;
                                 box.style.display = 'none';
+                                fetchRealRoadRoute(parseFloat(place.lat), parseFloat(place.lon), place.name);
                             };
                             box.appendChild(div);
                         });
@@ -406,13 +410,18 @@
         }, 400);
     }
 
-    function setPreset(cityName, km, time, element) {
+    function setPreset(cityName, km, time, lon, lat, element) {
         document.querySelectorAll('.route-item').forEach(el => el.classList.remove('selected'));
         if(element) element.classList.add('selected');
         document.getElementById('toLocation').value = cityName;
         currentRoute.to = cityName;
         currentRoute.km = km;
         currentRoute.time = time;
+        currentRoute.lat = lat;
+        currentRoute.lon = lon;
+        
+        // Подстрахуем точным запросом дорожного маршрута в фоновом режиме
+        fetchRealRoadRoute(lat, lon, cityName);
     }
 
     function goToCars() {
@@ -478,7 +487,7 @@
             service: currentRoute.car,
             route: `${from} ➔ ${currentRoute.to} (${currentRoute.km} км)`,
             date: date,
-            comment: `Авторасчет (${currentRoute.rate}$/км)`,
+            comment: `Дорожный расчет Waze/OSRM (${currentRoute.rate}$/км)`,
             price: currentRoute.price + ' $'
         };
 
