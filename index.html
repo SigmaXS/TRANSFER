@@ -12,6 +12,7 @@
             --accent: #3b82f6;
             --text-color: #ffffff;
             --text-secondary: #9ca3af;
+            --error-color: #ef4444;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -57,6 +58,12 @@
             margin-bottom: 14px;
             box-sizing: border-box;
         }
+        .error-message {
+            color: var(--error-color);
+            font-size: 13px;
+            margin-bottom: 12px;
+            display: none;
+        }
         .btn-submit {
             background-color: var(--accent);
             color: white;
@@ -72,10 +79,8 @@
         .btn-submit:active {
             opacity: 0.8;
         }
-        
-        /* Стили для нового экрана "Успешно" */
         #successScreen {
-            display: none; /* Скрыт по умолчанию */
+            display: none;
             text-align: center;
             padding-top: 60px;
         }
@@ -87,7 +92,6 @@
 </head>
 <body>
 
-<!-- ЭКРАН 1: ФОРМА ЗАКАЗА -->
 <div class="container" id="formScreen">
     <h2>🚗 Заказ трансфера</h2>
     <p class="subtitle">Быстро, комфортно и надежно по Молдове, Украине и Европе.</p>
@@ -112,17 +116,18 @@
 
         <label for="comment">Комментарий или адрес</label>
         <input type="text" id="comment" placeholder="Откуда забрать, детали...">
+        
+        <div id="errorMsg" class="error-message">⚠️ Пожалуйста, выберите дату поездки!</div>
     </div>
 
     <button class="btn-submit" id="submitBtn">Оформить заявку</button>
 </div>
 
-<!-- ЭКРАН 2: СПАСИБО ЗА ОБРАЩЕНИЕ -->
 <div class="container" id="successScreen">
     <div class="success-icon">✅</div>
     <h2>Спасибо за заявку!</h2>
     <p class="subtitle" style="font-size: 16px; margin-top: 10px;">
-        Спасибо, что пользуетесь нашим трансфером.<br>Ваша форма отправлена!
+        Ваша заявка успешно отправлена.<br>Мы свяжемся с вами в ближайшее время!
     </p>
 </div>
 
@@ -131,29 +136,40 @@
     tg.expand();
 
     document.getElementById('submitBtn').addEventListener('click', function() {
-        // Собираем данные
         const serviceType = document.getElementById('serviceType').value;
         const route = document.getElementById('route').value;
-        const date = document.getElementById('date').value;
+        const dateInput = document.getElementById('date');
         const comment = document.getElementById('comment').value;
+        const errorMsg = document.getElementById('errorMsg');
+
+        // Проверяем, заполнена ли дата (обязательное поле)
+        if (!dateInput.value) {
+            errorMsg.style.display = 'block';
+            dateInput.style.borderColor = '#ef4444';
+            return; // Прерываем отправку, если дата пустая
+        }
+
+        errorMsg.style.display = 'none';
+        dateInput.style.borderColor = '#2a3447';
 
         const data = {
-            user_id: tg.initDataUnsafe?.user?.id || 'unknown',
-            username: tg.initDataUnsafe?.user?.username || 'no_username',
             service: serviceType,
             route: route,
-            date: date,
-            comment: comment
+            date: dateInput.value,
+            comment: comment || 'Без комментариев'
         };
 
-        // 1. Скрываем форму и показываем экран благодарности
+        // Показываем экран успешной отправки
         document.getElementById('formScreen').style.display = 'none';
         document.getElementById('successScreen').style.display = 'block';
 
-        // 2. Ждем 2.5 секунды, чтобы человек успел прочитать текст, а затем отправляем данные
+        // Отправляем данные боту и через 2 секунды закрываем мини-приложение
         setTimeout(() => {
             tg.sendData(JSON.stringify(data));
-        }, 2500);
+            setTimeout(() => {
+                tg.close();
+            }, 500);
+        }, 1500);
     });
 </script>
 
