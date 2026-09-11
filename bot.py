@@ -47,7 +47,7 @@ async def init_db():
 async def cmd_start(message: types.Message):
     web_app_url = "https://transfer-production-f20b.up.railway.app"
     
-    # Создаем клавиатуру с кнопкой внизу экрана (как у такси-сервисов)
+    # Создаем клавиатуру с кнопкой внизу экрана
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -74,7 +74,15 @@ async def handle_web_app_data(message: types.Message):
         data = json.loads(message.web_app_data.data)
         
         user_id = data.get('user_id')
+        
+        # Страховка: если сайт не передал username, берем его напрямую из профиля отправителя в Telegram
         username = data.get('username')
+        if not username or username == 'no_username' or username == 'undefined':
+            if message.from_user and message.from_user.username:
+                username = message.from_user.username
+            else:
+                username = "Не указан"
+
         service = data.get('service')
         route = data.get('route')
         trip_date = data.get('date')
@@ -89,15 +97,21 @@ async def handle_web_app_data(message: types.Message):
                 VALUES ($1, $2, $3, $4, $5, $6)
                 ''',
                 int(user_id) if str(user_id).isdigit() else 0,
-                username, service, route, trip_date, comment
+                str(username), service, route, trip_date, comment
             )
             await conn.close()
 
-        # Отправляем уведомление тебе (админу) в личный чат (без разметки, чтобы избежать ошибок)
+        # Формление текста для уведомления
+        if username and username != "Не указан":
+            client_info = f"@{username}"
+        else:
+            client_info = f"ID: {user_id}"
+
+        # Отправляем уведомление тебе (админу) в личный чат
         if ADMIN_CHAT_ID:
             admin_text = (
                 "🚨 Новый заказ трансфера!\n\n"
-                f"👤 Клиент: @{username} (ID: {user_id})\n"
+                f"👤 Клиент: {client_info}\n"
                 f"🛠 Услуга: {service}\n"
                 f"🛣 Маршрут: {route}\n"
                 f"📅 Дата: {trip_date}\n"
