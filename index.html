@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transfer Moldova</title>
-    <!-- Подключаем официальный скрипт Telegram Web App -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
@@ -73,11 +72,23 @@
         .btn-submit:active {
             opacity: 0.8;
         }
+        
+        /* Стили для нового экрана "Успешно" */
+        #successScreen {
+            display: none; /* Скрыт по умолчанию */
+            text-align: center;
+            padding-top: 60px;
+        }
+        .success-icon {
+            font-size: 70px;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
+<!-- ЭКРАН 1: ФОРМА ЗАКАЗА -->
+<div class="container" id="formScreen">
     <h2>🚗 Заказ трансфера</h2>
     <p class="subtitle">Быстро, комфортно и надежно по Молдове, Украине и Европе.</p>
 
@@ -106,11 +117,21 @@
     <button class="btn-submit" id="submitBtn">Оформить заявку</button>
 </div>
 
+<!-- ЭКРАН 2: СПАСИБО ЗА ОБРАЩЕНИЕ -->
+<div class="container" id="successScreen">
+    <div class="success-icon">✅</div>
+    <h2>Спасибо за заявку!</h2>
+    <p class="subtitle" style="font-size: 16px; margin-top: 10px;">
+        Спасибо, что пользуетесь нашим трансфером.<br>Ваша форма отправлена!
+    </p>
+</div>
+
 <script>
     const tg = window.Telegram.WebApp;
-    tg.expand(); // Растягиваем на весь экран в Telegram
+    tg.expand();
 
     document.getElementById('submitBtn').addEventListener('click', function() {
+        // Собираем данные
         const serviceType = document.getElementById('serviceType').value;
         const route = document.getElementById('route').value;
         const date = document.getElementById('date').value;
@@ -125,8 +146,14 @@
             comment: comment
         };
 
-        // Отправляем данные боту и закрываем приложение
-        tg.sendData(JSON.stringify(data));
+        // 1. Скрываем форму и показываем экран благодарности
+        document.getElementById('formScreen').style.display = 'none';
+        document.getElementById('successScreen').style.display = 'block';
+
+        // 2. Ждем 2.5 секунды, чтобы человек успел прочитать текст, а затем отправляем данные
+        setTimeout(() => {
+            tg.sendData(JSON.stringify(data));
+        }, 2500);
     });
 </script>
 
