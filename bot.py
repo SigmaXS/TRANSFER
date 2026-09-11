@@ -42,11 +42,10 @@ async def init_db():
     except Exception as e:
         print(f"Ошибка инициализации БД: {e}")
 
-# Обработчик команды /start с красивым описанием и кнопкой
+# Обработчик команды /start
 async def cmd_start(message: types.Message):
     web_app_url = "https://transfer-production-f20b.up.railway.app"
     
-    # Кнопка внизу экрана (меню)
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -60,7 +59,6 @@ async def cmd_start(message: types.Message):
         is_persistent=True
     )
 
-    # Инлайн-кнопка для быстрого открытия прямо из сообщения (как на фото)
     inline_kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -80,7 +78,6 @@ async def cmd_start(message: types.Message):
     )
     
     await message.answer(welcome_text, parse_mode="HTML", reply_markup=inline_kb)
-    # Отправляем также клавиатуру меню вниз
     await message.answer("Воспользуйтесь кнопкой меню внизу для быстрого доступа:", reply_markup=keyboard)
 
 # Обработчик данных из Web App
@@ -114,7 +111,6 @@ async def handle_web_app_data(message: types.Message):
             )
             await conn.close()
 
-        # Кнопка связи с клиентом
         inline_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -158,7 +154,8 @@ async def web_server():
 async def main():
     logging.basicConfig(level=logging.INFO)
     await init_db()
-    asyncio.gather(
+    # Здесь был пропущен await, из-за чего бот не запускался:
+    await asyncio.gather(
         web_server(),
         dp.start_polling(bot)
     )
