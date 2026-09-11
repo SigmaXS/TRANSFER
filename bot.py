@@ -12,14 +12,13 @@ from aiohttp import web
 TOKEN = "8951598738:AAFal8Yqbmh49Adc2nFTzHVBFMESo2rda6I"
 ADMIN_CHAT_ID = 1657186014
 
-# Подключение к базе данных PostgreSQL на Railway
 DATABASE_URL = os.environ.get("DATABASE_URL")
 PORT = int(os.environ.get("PORT", 8080))
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Функция инициализации базы данных (создает таблицу заказов, если её нет)
+# Функция инициализации базы данных
 async def init_db():
     if not DATABASE_URL:
         print("DATABASE_URL не найдена!")
@@ -43,11 +42,10 @@ async def init_db():
     except Exception as e:
         print(f"Ошибка инициализации БД: {e}")
 
-# Обработчик команды /start с нижней кнопкой для открытия Web App
+# Обработчик команды /start
 async def cmd_start(message: types.Message):
     web_app_url = "https://transfer-production-f20b.up.railway.app"
     
-    # Создаем клавиатуру с кнопкой внизу экрана
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -67,26 +65,25 @@ async def cmd_start(message: types.Message):
         reply_markup=keyboard
     )
 
-# Обработчик данных из Web App (когда клиент отправляет форму)
+# Обработчик данных из Web App
 async def handle_web_app_data(message: types.Message):
     try:
-        # Распаковываем JSON от сайта
+        # Распаковываем JSON от сайта (маршрут, дата, комментарий)
         data = json.loads(message.web_app_data.data)
         
-        user_id = data.get('user_id')
-        
-        # Страховка: если сайт не передал username, берем его напрямую из профиля отправителя в Telegram
-        username = data.get('username')
-        if not username or username == 'no_username' or username == 'undefined':
-            if message.from_user and message.from_user.username:
-                username = message.from_user.username
-            else:
-                username = "Не указан"
-
         service = data.get('service')
         route = data.get('route')
         trip_date = data.get('date')
         comment = data.get('comment')
+
+        # ГАРАНТИЯ: Берем ID и Username напрямую из Telegram-профиля того, кто нажал кнопку!
+        user_id = message.from_user.id
+        username = message.from_user.username
+        
+        if not username:
+            username = "Без юзернейма"
+        else:
+            username = f"@{username}"
 
         # Сохраняем заказ в PostgreSQL
         if DATABASE_URL:
@@ -96,22 +93,16 @@ async def handle_web_app_data(message: types.Message):
                 INSERT INTO orders (user_id, username, service, route, trip_date, comment)
                 VALUES ($1, $2, $3, $4, $5, $6)
                 ''',
-                int(user_id) if str(user_id).isdigit() else 0,
-                str(username), service, route, trip_date, comment
+                int(user_id),
+                username, service, route, trip_date, comment
             )
             await conn.close()
-
-        # Формление текста для уведомления
-        if username and username != "Не указан":
-            client_info = f"@{username}"
-        else:
-            client_info = f"ID: {user_id}"
 
         # Отправляем уведомление тебе (админу) в личный чат
         if ADMIN_CHAT_ID:
             admin_text = (
                 "🚨 Новый заказ трансфера!\n\n"
-                f"👤 Клиент: {client_info}\n"
+                f"👤 Клиент: {username} (ID: {user_id})\n"
                 f"🛠 Услуга: {service}\n"
                 f"🛣 Маршрут: {route}\n"
                 f"📅 Дата: {trip_date}\n"
@@ -125,7 +116,6 @@ async def handle_web_app_data(message: types.Message):
 dp.message.register(cmd_start, Command("start"))
 dp.message.register(handle_web_app_data)
 
-# Веб-сервер для отдачи index.html
 async def handle_index(request):
     return web.FileResponse('index.html')
 
