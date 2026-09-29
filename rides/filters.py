@@ -2,14 +2,14 @@
 from dataclasses import dataclass
 
 from .parsing import Parsed
-from .places import MD, PMR
+from .places import EU, MD, PMR, UA
 
-ALL, MOLDOVA, PMR_ONLY, ROUTE = "all", "md", "pmr", "route"
+ALL, MOLDOVA, PMR_ONLY, UKRAINE, EUROPE, ROUTE = "all", "md", "pmr", "ua", "eu", "route"
 
 
 @dataclass
 class Filter:
-    kind: str                       # all | md | pmr | route
+    kind: str                       # all | md | pmr | ua | eu | route
     from_place: str | None = None   # для route
     to_place: str | None = None     # для route
     both_ways: bool = True
@@ -22,6 +22,10 @@ class Filter:
             return "🇲🇩 По Молдове"
         if self.kind == PMR_ONLY:
             return "🔴 ПМР"
+        if self.kind == UKRAINE:
+            return "🇺🇦 Украина"
+        if self.kind == EUROPE:
+            return "🇪🇺 Европа"
         arrow = "⇄" if self.both_ways else "→"
         return f"🛣 {self.from_place or 'любой'} {arrow} {self.to_place or 'любой'}"
 
@@ -46,6 +50,10 @@ def matches(f: Filter, p: Parsed) -> bool:
         return MD in p.regions
     if f.kind == PMR_ONLY:
         return PMR in p.regions
+    if f.kind == UKRAINE:
+        return UA in p.regions
+    if f.kind == EUROPE:
+        return EU in p.regions
     if f.kind == ROUTE:
         if _route_ok(f.from_place, f.to_place, p):
             return True

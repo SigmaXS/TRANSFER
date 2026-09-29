@@ -4,13 +4,13 @@ import os
 from datetime import datetime
 
 from aiogram import F, Router
-from aiogram.filters import Command, CommandObject
+from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton as Btn, InlineKeyboardMarkup, Message
 
 from .db import RidesDB
-from .filters import ALL, MOLDOVA, PMR_ONLY, ROUTE, Filter
+from .filters import ALL, EUROPE, MOLDOVA, PMR_ONLY, ROUTE, UKRAINE, Filter
 from .places import POPULAR, resolve_place
 
 router = Router(name="rides")
@@ -42,6 +42,7 @@ def filter_kinds() -> InlineKeyboardMarkup:
     return kb([
         [("🛣 Маршрут: откуда → куда", "r:add:route")],
         [("🇲🇩 Вся Молдова", "r:add:md"), ("🔴 Только ПМР", "r:add:pmr")],
+        [("🇺🇦 Украина", "r:add:ua"), ("🇪🇺 Европа", "r:add:eu")],
         [("🌍 Все заявки", "r:add:all")],
         [("« Назад", "r:home")],
     ])
@@ -63,7 +64,7 @@ def fmt_date(ts: float) -> str:
 async def status_text(db: RidesDB, user_id: int) -> str:
     u = await db.get_user(user_id)
     fs = await db.get_filters(user_id)
-    lines = ["🚕 <b>Заявки попутчиков — Молдова и ПМР</b>\n"]
+    lines = ["🚕 <b>Попутчики · Молдова · ПМР · UA · EU</b>\n"]
     lines.append(f"✅ Доступ до {fmt_date(u.access_until())}" if u.has_access()
                  else "⛔️ Доступ закончился — заявки не приходят.")
     lines.append("▶️ Уведомления включены" if u.active else "⏸ Уведомления на паузе")
@@ -86,9 +87,9 @@ async def show_home(target: Message, db: RidesDB, user_id: int, edit: bool = Fal
 async def open_section(target: Message, user, db: RidesDB, edit: bool):
     _, is_new = await db.ensure_user(user.id, user.username, TRIAL_DAYS)
     if is_new:
-        text = ("🚕 <b>Заявки попутчиков</b>\n\n"
+        text = ("🚕 <b>Попутчики · Молдова · ПМР · UA · EU</b>\n\n"
                 "Я читаю группы попутчиков и присылаю вам людей, которые ищут машину по вашему "
-                "маршруту, — чтобы не ехать пустым.\n\n"
+                "маршруту — по Молдове, ПМР, в Украину и Европу. Чтобы не ехать пустым.\n\n"
                 f"🎁 Бесплатно {TRIAL_DAYS} дней. Какие заявки присылать?")
         if edit:
             await target.edit_text(text, reply_markup=filter_kinds(), parse_mode="HTML")
@@ -98,9 +99,11 @@ async def open_section(target: Message, user, db: RidesDB, edit: bool):
     await show_home(target, db, user.id, edit=edit)
 
 
-# ---------------- вход в раздел ----------------
+# ---------------- вход ----------------
 
+@router.message(CommandStart())
 @router.message(Command("driver"))
+@router.message(Command("menu"))
 async def driver_cmd(msg: Message, rides_db: RidesDB, state: FSMContext):
     await state.clear()
     await open_section(msg, msg.from_user, rides_db, edit=False)
@@ -127,9 +130,13 @@ async def add(cb: CallbackQuery):
     await cb.answer()
 
 
-@router.callback_query(F.data.in_({"r:add:md", "r:add:pmr", "r:add:all"}))
+REGION_FILTERS = {"r:add:md": MOLDOVA, "r:add:pmr": PMR_ONLY, "r:add:ua": UKRAINE,
+                  "r:add:eu": EUROPE, "r:add:all": ALL}
+
+
+@router.callback_query(F.data.in_(set(REGION_FILTERS)))
 async def add_region(cb: CallbackQuery, rides_db: RidesDB):
-    kind = {"r:add:md": MOLDOVA, "r:add:pmr": PMR_ONLY, "r:add:all": ALL}[cb.data]
+    kind = REGION_FILTERS[cb.data]
     await rides_db.ensure_user(cb.from_user.id, cb.from_user.username, TRIAL_DAYS)
     if kind in {f.kind for f in await rides_db.get_filters(cb.from_user.id)}:
         await cb.answer("Такой фильтр уже есть")
@@ -268,9 +275,11 @@ HELP = (
     "🛣 <b>Маршрут</b> — например, Тирасполь ⇄ Кишинёв. Если в заявке указан только один город "
     "(«кто едет в Кишинёв?»), она тоже придёт.\n"
     "🇲🇩 <b>Вся Молдова</b> — любая заявка, где есть город Молдовы (в том числе поездки в ПМР и за границу).\n"
-    "🔴 <b>ПМР</b> — любая заявка, где есть Тирасполь, Бендеры, Рыбница и др.\n\n"
+    "🔴 <b>ПМР</b> — любая заявка, где есть Тирасполь, Бендеры, Рыбница и др.\n"
+    "🇺🇦 <b>Украина</b> — Одесса, Киев, Николаев, Измаил и др.\n"
+    "🇪🇺 <b>Европа</b> — Яссы, Бухарест, Италия, Германия и др.\n\n"
     "Нажмите «✉️ Написать», чтобы связаться с человеком. Кто быстрее ответит — тот и везёт 😉\n\n"
-    "/driver — меню водителя · /start — заказ трансфера"
+    "/start — главное меню"
 )
 
 

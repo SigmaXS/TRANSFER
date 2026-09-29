@@ -49,6 +49,10 @@ def run():
     r = parse_message("Тирасполь - Рыбница сегодня 1 чел")
     assert not matches(Filter("md"), r)
     assert matches(Filter("pmr"), r)
+    u = parse_message("Кто едет из Кишинёва в Одессу завтра?")
+    assert matches(Filter("ua"), u) and matches(Filter("md"), u) and not matches(Filter("eu"), u)
+    e = parse_message("Caut loc Chișinău - Italia, plec luni")
+    assert e.to_place == "Италия" and matches(Filter("eu"), e) and not matches(Filter("pmr"), e)
     print("Фильтры: OK")
     print(f"\nИтого: {len(CASES) - failed}/{len(CASES)} сообщений разобрано верно")
     return failed
