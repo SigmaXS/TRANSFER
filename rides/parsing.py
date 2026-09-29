@@ -43,12 +43,21 @@ _WHEN_WORDS = {
     "azi": "сегодня", "astazi": "сегодня", "maine": "завтра",
     "poimaine": "послезавтра", "acum": "сейчас", "urgent": "срочно",
 }
+# Ключевые слова приводим к тому же виду, что и текст (иначе «сейчас» ≠ «сеичас»)
+_PASSENGER_KW = [normalize(k) for k in _PASSENGER_KW]
+_DRIVER_KW = [normalize(k) for k in _DRIVER_KW]
+_AD_KW = [normalize(k) for k in _AD_KW]
+_WHEN_WORDS = {normalize(k): v for k, v in _WHEN_WORDS.items()}
+
 _TIME_RE = re.compile(r"(?<![\d.])([01]?\d|2[0-3])[:.]([0-5]\d)(?![\d.])")
 _DATE_RE = re.compile(r"(?<![\d:])([0-3]?\d)[./]([01]?\d)(?:[./](\d{2,4}))?(?![\d:])")
 _TIME_WORD_RE = re.compile(r"(?:\bв|\bla|\bк)\s+(\d{1,2})\s*(?:ч\b|час|утра|вечера|дня)")
 _PHONE_RE = re.compile(r"(?:\+?373|\b0)[\s-]?\d{2}[\s-]?\d{2,3}[\s-]?\d{2,3}[\s-]?\d{0,3}")
 _PEOPLE_RE = re.compile(r"(\d)\s*(?:чел|человек|пассаж|pers|persoan|oameni)")
 _SEATS_RE = re.compile(r"(\d)\s*(?:мест|места|место|locur|loc\b)")
+# «Нужно 1 место», «нужно место», «ищу 2 места», «caut 1 loc» — это пассажир, а не свободные места
+_NEED_SEATS_RE = re.compile(
+    r"(?:нужн\w*|надо|ищу|требуется|caut|am nevoie de)\s+(?:(\d)\s*)?(?:мест|locur|loc\b)")
 
 
 @dataclass
@@ -149,11 +158,15 @@ def parse_message(text: str) -> Parsed:
     m = _PEOPLE_RE.search(norm)
     if m:
         p.people = int(m.group(1))
-    m = _SEATS_RE.search(norm)
-    if m:
-        p.seats = int(m.group(1))
+    need = _NEED_SEATS_RE.search(norm)
+    if need:
+        p.people = p.people or int(need.group(1) or 1)
+    else:
+        m = _SEATS_RE.search(norm)
+        if m:
+            p.seats = int(m.group(1))
 
-    pass_score = sum(kw in norm for kw in _PASSENGER_KW) + (1 if p.people else 0)
+    pass_score = sum(kw in norm for kw in _PASSENGER_KW) + (1 if p.people else 0) + (2 if need else 0)
     drv_score = sum(kw in norm for kw in _DRIVER_KW) + (1 if p.seats else 0)
     ad_score = sum(kw in norm for kw in _AD_KW) + len(_PHONE_RE.findall(norm))
     p.is_ad = ad_score >= 2 or (ad_score >= 1 and len(text) > 300)
