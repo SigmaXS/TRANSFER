@@ -214,6 +214,10 @@ def parse_message(text: str) -> Parsed:
         p.kind = PASSENGER
     elif drv_score > 0 or p.is_ad:
         p.kind = DRIVER
+    elif p.has_route and (p.time or p.date or p.when) and _PHONE_RE.search(norm):
+        # «Завтра 01.10 из Комрата до Кишинёва в 14:00, 060304870» — так пишут водители:
+        # маршрут + время + телефон, без «ищу/нужна машина»
+        p.kind = DRIVER
     elif p.has_route and len(text) <= 160 and not _PHONE_RE.search(norm):
         # Короткое «Тирасполь - Кишинёв завтра 7:00» без телефона и без «есть места»:
         # в группах попутчиков так чаще всего пишут пассажиры.
