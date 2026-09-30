@@ -171,6 +171,8 @@ class Watcher:
             return
         p = parse_message(text)
         if not p.places or p.kind == UNKNOWN:
+            if notify and p.kind != UNKNOWN:
+                log.info("Похоже на заявку, но город не распознан: %s", text[:200].replace("\n", " "))
             return  # без населённого пункта или непонятно, кто пишет
         title = getattr(chat, "title", "") or str(msg.chat_id)
         duplicate = await self.db.seen_recently(p.fingerprint, ts=msg.date.timestamp())

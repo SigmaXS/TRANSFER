@@ -53,6 +53,8 @@ async def process(db: RidesDB, notifier: Notifier, title: str, text: str) -> dic
         return {"ok": True, "skipped": "empty"}
     p = parse_message(body)
     if not p.places or p.kind not in (PASSENGER, DRIVER):
+        if p.kind in (PASSENGER, DRIVER):
+            log.info("Похоже на заявку, но город не распознан: %s", body[:200].replace("\n", " "))
         return {"ok": True, "skipped": "not a ride"}
     if await db.seen_recently(p.fingerprint):
         return {"ok": True, "skipped": "duplicate"}
