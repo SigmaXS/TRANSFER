@@ -3,9 +3,11 @@
 Аккаунт-читатель подключается по строке сессии из переменной TG_SESSION
 (получить её: python make_session.py на своём компьютере).
 """
+import asyncio
 import logging
 import os
 import re
+import time
 from pathlib import Path
 
 from telethon import TelegramClient, events
@@ -14,11 +16,13 @@ from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
 
 from .db import RidesDB
-from .notifier import Item, Notifier
+from .notifier import Notifier
 from .parsing import UNKNOWN, parse_message
+from .posts import post_from_group
 
 log = logging.getLogger("rides.listener")
 SOURCES_FILE = Path(__file__).with_name("sources.txt")
+_BACKGROUND: set = set()  # ссылки на фоновые задачи, чтобы их не собрал сборщик мусора
 
 
 def load_sources() -> list[str | int]:
@@ -103,27 +107,72 @@ async def start_listener(client: TelegramClient, db: RidesDB, notifier: Notifier
         log.error("Нет ни одной доступной группы — проверьте rides/sources.txt")
         return False
 
-    @client.on(events.NewMessage(chats=chats, incoming=True))
-    async def on_message(event):
-        text = event.raw_text or ""
-        if len(text) < 6:
+    async def handle(msg, chat, notify: bool) -> None:
+        """Одно сообщение из группы → объявление (+ рассылка, если это новое)."""
+        text = msg.raw_text or ""
+        if len(text) < 6 or msg.out:
             return
         p = parse_message(text)
-        if not p.places:
-            return  # без населённого пункта это не заявка
-        chat = await event.get_chat()
-        title = getattr(chat, "title", "") or str(event.chat_id)
-        duplicate = await db.seen_recently(p.fingerprint)
-        req_id = await db.log_request(title, p, duplicate)
-        if duplicate or (p.kind == UNKNOWN and not p.has_route):
-            return
-        sender = await event.get_sender()
+        if not p.places or p.kind == UNKNOWN:
+            return  # без населённого пункта или непонятно, кто пишет
+        title = getattr(chat, "title", "") or str(msg.chat_id)
+        duplicate = await db.seen_recently(p.fingerprint, ts=msg.date.timestamp())
+        if notify:
+            req_id = await db.log_request(title, p, duplicate)
+            if duplicate:
+                return
+        sender = await msg.get_sender()
         name = " ".join(x for x in (getattr(sender, "first_name", None),
                                     getattr(sender, "last_name", None)) if x) or None
-        item = Item(parsed=p, chat_title=title, link=message_link(chat, event.chat_id, event.id),
-                    sender_username=getattr(sender, "username", None), sender_name=name)
-        sent = await notifier.dispatch(item)
-        await db.set_delivered(req_id, sent)
-        log.info("%s | %s → %s | отправлено %d", p.kind, p.from_place, p.to_place, sent)
+        post = post_from_group(p, chat=title, link=message_link(chat, msg.chat_id, msg.id),
+                               posted=msg.date, author_id=getattr(sender, "id", None),
+                               username=getattr(sender, "username", None), name=name)
+        if not notify and post["expires_at"] < time.time():
+            return  # старая заявка, уже неактуальна
+        saved = await db.save_post(post)
+        if saved and notify:
+            sent = await notifier.dispatch(saved)
+            await db.set_delivered(req_id, sent)
+            log.info("%s | %s → %s | отправлено %d", p.kind, p.from_place, p.to_place, sent)
 
+    @client.on(events.NewMessage(chats=chats, incoming=True))
+    async def on_message(event):
+        try:
+            await handle(event.message, await event.get_chat(), notify=True)
+        except Exception:  # noqa: BLE001
+            log.exception("Ошибка обработки сообщения")
+
+    async def backfill():
+        """Заявки, написанные до запуска бота: берём историю групп за последние часы.
+        Ничего не рассылаем — они появятся в «Актуальных заявках»."""
+        hours = int(os.environ.get("RIDES_BACKFILL_HOURS", "24"))
+        since = time.time() - hours * 3600
+        for chat in chats:
+            count = 0
+            try:
+                msgs = []
+                async for msg in client.iter_messages(chat, limit=1000):
+                    if msg.date.timestamp() < since:
+                        break
+                    msgs.append(msg)
+                for msg in reversed(msgs):  # от старых к новым
+                    try:
+                        await handle(msg, chat, notify=False)
+                        count += 1
+                    except Exception as e:  # noqa: BLE001
+                        log.debug("История: %s", e)
+                log.info("История %s: просмотрено %d сообщений за %d ч",
+                         getattr(chat, "title", chat), count, hours)
+            except Exception as e:  # noqa: BLE001
+                log.warning("Не удалось загрузить историю %s: %s", getattr(chat, "title", chat), e)
+
+    async def housekeeping():
+        while True:
+            try:
+                await db.cleanup()
+            except Exception as e:  # noqa: BLE001
+                log.warning("Очистка: %s", e)
+            await asyncio.sleep(3600)
+
+    _BACKGROUND.update({asyncio.create_task(backfill()), asyncio.create_task(housekeeping())})
     return True

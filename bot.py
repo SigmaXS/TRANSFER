@@ -1,4 +1,4 @@
-"""Бот «Попутчики Молдова | ПМР | UA | EU»: заявки попутчиков из групп Telegram для водителей."""
+"""Бот «Попутчики Молдова | ПМР | UA | EU»: водители находят пассажиров, пассажиры — машины."""
 import asyncio
 import logging
 import os
@@ -18,13 +18,14 @@ TOKEN = os.environ.get("BOT_TOKEN", "").strip()
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 BOT_NAME = os.environ.get("BOT_NAME", "Попутчики Молдова | ПМР | UA | EU")
 BOT_SHORT_DESCRIPTION = (
-    "Заявки попутчиков для водителей: Молдова, ПМР, Украина, Европа. Не езди пустым 🚕")
+    "Попутки и свободные машины: Молдова, ПМР, Украина, Европа. Водителям — пассажиры, пассажирам — машины 🚕")
 BOT_DESCRIPTION = (
-    "🚕 Бот для водителей: присылает заявки людей, которые ищут машину, из групп попутчиков "
-    "в Telegram.\n\n"
-    "🛣 Фильтр по маршруту (откуда → куда)\n"
-    "🇲🇩 Молдова · 🔴 ПМР · 🇺🇦 Украина · 🇪🇺 Европа\n\n"
-    "Нажмите «Старт», чтобы настроить фильтры.")
+    "🚕 Попутчики · Молдова · ПМР · UA · EU\n\n"
+    "🚗 Водителям — заявки людей, которые ищут машину, из групп попутчиков и из бота. "
+    "Не езди пустым.\n"
+    "🙋 Пассажирам — свободные машины по вашему маршруту и своя заявка «хочу поехать». Бесплатно.\n\n"
+    "🛣 Маршрут откуда → куда · 🇲🇩 Молдова · 🔴 ПМР · 🇺🇦 Украина · 🇪🇺 Европа\n\n"
+    "Нажмите «Старт».")
 
 log = logging.getLogger("bot")
 
@@ -56,13 +57,14 @@ async def main():
     await rides_db.init()
     print("База данных успешно инициализирована!")
 
-    dp = Dispatcher(storage=MemoryStorage(), rides_db=rides_db)
+    notifier = Notifier(bot, rides_db)
+    dp = Dispatcher(storage=MemoryStorage(), rides_db=rides_db, notifier=notifier)
     dp.include_router(rides_router)
     await setup_profile(bot)
 
     tasks = [dp.start_polling(bot)]
     client = make_client()
-    if client and await start_listener(client, rides_db, Notifier(bot, rides_db)):
+    if client and await start_listener(client, rides_db, notifier):
         tasks.append(client.run_until_disconnected())
     await asyncio.gather(*tasks)
 

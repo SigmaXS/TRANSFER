@@ -39,7 +39,7 @@ _TO_PREPS = {"в", "во", "на", "до", "к", "ко", "spre", "la", "in", "ca
 
 _WHEN_WORDS = {
     "сегодня": "сегодня", "завтра": "завтра", "послезавтра": "послезавтра",
-    "сейчас": "сейчас", "срочно": "срочно",
+    "сейчас": "сейчас", "срочно": "срочно", "ближайшее время": "сейчас", "как можно скорее": "сейчас",
     "azi": "сегодня", "astazi": "сегодня", "maine": "завтра",
     "poimaine": "послезавтра", "acum": "сейчас", "urgent": "срочно",
 }
@@ -51,7 +51,10 @@ _WHEN_WORDS = {normalize(k): v for k, v in _WHEN_WORDS.items()}
 
 _TIME_RE = re.compile(r"(?<![\d.])([01]?\d|2[0-3])[:.]([0-5]\d)(?![\d.])")
 _DATE_RE = re.compile(r"(?<![\d:])([0-3]?\d)[./]([01]?\d)(?:[./](\d{2,4}))?(?![\d:])")
-_TIME_WORD_RE = re.compile(r"(?:\bв|\bla|\bк)\s+(\d{1,2})\s*(?:ч\b|час|утра|вечера|дня)")
+# «в 19 ч», «на 19 часов», «к 7 утра», «в 7 вечера», «la ora 8», «на 19»
+_TIME_WORD_RE = re.compile(
+    r"(?:\bв|\bво|\bна|\bк|\bla|\bora|\bpe la)\s+(?:ora\s+)?(\d{1,2})(?![\d:.])\s*"
+    r"(ч\b|час\w*|утра|вечера|веч\b|дня|ночи|ore\b|ora\b|dimineata|seara)?")
 _PHONE_RE = re.compile(r"(?:\+?373|\b0)[\s-]?\d{2}[\s-]?\d{2,3}[\s-]?\d{2,3}[\s-]?\d{0,3}")
 _PEOPLE_RE = re.compile(r"(\d)\s*(?:чел|человек|пассаж|pers|persoan|oameni)")
 _SEATS_RE = re.compile(r"(\d)\s*(?:мест|места|место|locur|loc\b)")
@@ -133,9 +136,23 @@ def _when(norm: str, p: Parsed):
             p.time = f"{int(m.group(1))}:{m.group(2)}"
             break
     if not p.time:
-        m = _TIME_WORD_RE.search(norm)
-        if m:
-            p.time = f"{int(m.group(1))}:00"
+        for m in _TIME_WORD_RE.finditer(norm):
+            hour, suffix = int(m.group(1)), m.group(2) or ""
+            after = norm[m.end(1):m.end(1) + 12]
+            if not suffix and re.match(r"\s*(?:чел|человек|мест|пассаж|pers|loc|лей|lei|€|\$|евро)", after):
+                continue  # «на 2 человека», «в 3 места» — это не время
+            if hour > 23:
+                continue
+            if suffix.startswith(("веч", "seara")) and hour < 12:
+                hour += 12
+            elif suffix == "дня" and hour < 7:
+                hour += 12
+            elif suffix == "ночи" and hour == 12:
+                hour = 0
+            if not suffix and hour < 5 and not re.search(r"\bв\b|\bla\b", norm[max(0, m.start() - 1):m.start() + 3]):
+                continue  # «на 2» без уточнения — скорее количество
+            p.time = f"{hour}:00"
+            break
     for m in _DATE_RE.finditer(norm):
         day, month = int(m.group(1)), int(m.group(2))
         if m.group(0) == "24/7":
