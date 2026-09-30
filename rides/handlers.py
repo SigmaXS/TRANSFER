@@ -850,7 +850,8 @@ async def ingest_log(msg: Message):
         await msg.answer("С телефона пока ничего не приходило с момента последнего запуска бота.")
         return
     reasons = {"not a rides group": "не группа попутчиков", "not a ride": "не заявка",
-               "duplicate": "дубль", "empty": "пустое"}
+               "duplicate": "дубль", "empty": "пустое",
+               "summary": "сводка Viber без текста — нужны поля lines/big"}
     lines = ["📥 <b>Последние уведомления с телефона</b>\n"]
     for ts, title, text, res in list(RECENT)[-15:]:
         t = datetime.fromtimestamp(ts, _TZ).strftime("%H:%M:%S")

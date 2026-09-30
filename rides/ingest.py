@@ -74,6 +74,27 @@ async def process(db: RidesDB, notifier: Notifier, title: str, text: str) -> dic
     return {"ok": True, "kind": p.kind, "from": p.from_place, "to": p.to_place, "sent": sent}
 
 
+def _is_summary(text: str) -> bool:
+    low = text.strip().lower()
+    return (low.startswith(("новые сообщения", "new messages", "mesaje noi"))
+            or bool(re.fullmatch(r"\d+\s+(новых|новое|новые)?\s*сообщ\w*.*", low)))
+
+
+def _split_messages(raw: str) -> list[str]:
+    """Строки сводки Viber: каждое «Автор: текст» — отдельное сообщение; строки без автора
+    приклеиваются к предыдущему (многострочные заявки)."""
+    out: list[str] = []
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line or _is_summary(line):
+            continue
+        if _SENDER_RE.match(line) or not out:
+            out.append(line)
+        else:
+            out[-1] += "\n" + line
+    return out
+
+
 def make_app(db: RidesDB, notifier: Notifier) -> web.Application:
     key = os.environ.get("INGEST_KEY", "").strip()
 
@@ -94,14 +115,26 @@ def make_app(db: RidesDB, notifier: Notifier) -> web.Application:
                 data.setdefault("text", await request.text())
         title = str(data.get("title") or data.get("notification_title") or "")
         text = str(data.get("text") or data.get("notification") or data.get("message") or "")
-        try:
-            result = await process(db, notifier, title, text)
-        except Exception as e:  # noqa: BLE001
-            log.exception("ingest")
-            result = {"ok": False, "error": str(e)}
-        RECENT.append((time.time(), title[:80], text[:160], result))
-        log.info("ingest | %s | %s | %s", title[:60], text[:80].replace("\n", " "), result)
-        return web.json_response(result, status=200 if result.get("ok") else 500)
+        # Viber сворачивает сообщения группы в сводку «Новые сообщения в …» — сами сообщения
+        # приходят в «строках текста» (lines) или «развёрнутом тексте» (big). Берём каждое.
+        extra = "\n".join(str(data.get(k) or "") for k in ("lines", "big", "bigtext", "text_lines"))
+        messages = [m for m in _split_messages(extra) if m] or [text]
+        results = []
+        for body in messages:
+            if _is_summary(body):
+                result = {"ok": True, "skipped": "summary"}
+            else:
+                try:
+                    result = await process(db, notifier, title, body)
+                except Exception as e:  # noqa: BLE001
+                    log.exception("ingest")
+                    result = {"ok": False, "error": str(e)}
+            RECENT.append((time.time(), title[:80], body[:160], result))
+            log.info("ingest | %s | %s | %s", title[:60], body[:80].replace("\n", " "), result)
+            results.append(result)
+        ok = all(r.get("ok") for r in results)
+        return web.json_response(results[0] if len(results) == 1 else {"ok": ok, "items": results},
+                                 status=200 if ok else 500)
 
     async def health(_request):
         return web.Response(text="ok")
