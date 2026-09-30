@@ -45,6 +45,7 @@ async def setup_profile(bot: Bot):
                       BotCommand(command="sources", description="Группы и сайты, которые читает бот"),
                       BotCommand(command="findgroups", description="Найти группы попутчиков"),
                       BotCommand(command="addsource", description="Добавить группу: /addsource @group"),
+                      BotCommand(command="paste", description="Вставлять заявки из Viber: /paste Название"),
                       BotCommand(command="stats", description="Статистика заявок"),
                       BotCommand(command="grant", description="Продлить доступ: /grant id дней")]
         for admin_id in ADMIN_IDS:

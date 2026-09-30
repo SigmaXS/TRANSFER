@@ -37,6 +37,10 @@ class RouteForm(StatesGroup):   # фильтр-маршрут
     to_place = State()
 
 
+class PasteForm(StatesGroup):   # ручной ввод заявок из Viber и др.
+    active = State()
+
+
 class PostForm(StatesGroup):    # своё объявление
     from_place = State()
     to_place = State()
@@ -787,3 +791,51 @@ async def del_source(cb: CallbackQuery, rides_db: RidesDB, watcher):
     if src:
         await cb.message.answer(f"🗑 Больше не читаю «{html.escape(src['title'] or src['ref'])}».",
                                 parse_mode="HTML")
+
+
+# ---------------- ручной ввод: Viber и другие чаты, которые бот не читает сам ----------------
+
+@router.message(Command("paste"), F.from_user.id.in_(ADMIN_IDS))
+async def paste_start(msg: Message, command: CommandObject, state: FSMContext):
+    """/paste [название группы] — дальше каждое вставленное/пересланное сообщение = заявка."""
+    label = (command.args or "Viber").strip()[:60]
+    await state.set_state(PasteForm.active)
+    await state.update_data(label=label)
+    await msg.answer(
+        f"📥 <b>Режим вставки заявок</b> · источник: «{html.escape(label)}»\n\n"
+        "Копируйте сообщения из Viber (или пересылайте из любого чата) и отправляйте сюда — "
+        "каждое станет заявкой: попадёт в ленту и уйдёт водителям/пассажирам по фильтрам.\n"
+        "Телефон из текста останется в заявке.\n\n"
+        "Сменить источник: /paste Название · Выйти: /done", parse_mode="HTML")
+
+
+@router.message(PasteForm.active, Command("done"))
+async def paste_done(msg: Message, state: FSMContext):
+    await state.clear()
+    await msg.answer("Режим вставки выключен. /start — меню")
+
+
+@router.message(PasteForm.active, F.text | F.caption)
+async def paste_item(msg: Message, state: FSMContext, rides_db: RidesDB, notifier):
+    from .posts import post_from_group
+    text = msg.text or msg.caption
+    p = parse_message(text)
+    if not p.places or p.kind not in (PASSENGER, DRIVER):
+        await msg.reply("⚠️ Не понял маршрут или кто пишет — пропускаю. "
+                        "Нужен хотя бы один город и «ищу/нужна машина» или «есть места».")
+        return
+    label = (await state.get_data()).get("label", "Viber")
+    origin = msg.forward_origin
+    author = getattr(getattr(origin, "sender_user", None), "username", None)
+    post = post_from_group(p, chat=label, link=None, posted=msg.forward_date or msg.date,
+                           author_id=None, username=author, name=None)
+    saved = await rides_db.save_post(post)
+    if not saved:
+        await msg.reply("♻️ Такая заявка сегодня уже есть.")
+        return
+    sent = await notifier.dispatch(saved)
+    who = "водителям" if saved["kind"] == PASSENGER else "пассажирам"
+    route = f"{saved['from_place'] or '?'} → {saved['to_place'] or '?'}"
+    await msg.reply(f"✅ {'🙋' if saved['kind'] == PASSENGER else '🚗'} {route} · "
+                    f"{trip_label(saved['trip_at'], saved['has_time'], saved['when_label'])} · "
+                    f"отправлено {who}: {sent}")
