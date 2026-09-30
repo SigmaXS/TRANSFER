@@ -7,6 +7,7 @@ POST https://<домен>/ingest?key=<INGEST_KEY>
 """
 import collections
 import hmac
+import json
 import logging
 import time
 import os
@@ -74,6 +75,51 @@ async def process(db: RidesDB, notifier: Notifier, title: str, text: str) -> dic
     return {"ok": True, "kind": p.kind, "from": p.from_place, "to": p.to_place, "sent": sent}
 
 
+_PLACEHOLDER_RE = re.compile(r"^%\w+(\(\))?$")  # переменная Tasker, которую не подставили
+
+
+def _clean(v) -> str:
+    s = str(v if v is not None else "").strip()
+    return "" if _PLACEHOLDER_RE.match(s) else s
+
+
+def conversation_messages(raw: str) -> tuple[str | None, list[str]]:
+    """%anconversation из AutoNotification (JSON переписки Viber) → (название чата, ["Автор: текст", …])."""
+    try:
+        obj = json.loads(raw)
+    except (ValueError, TypeError):
+        return None, []
+    title: str | None = None
+    out: list[str] = []
+
+    def name_of(x):
+        if isinstance(x, dict):
+            x = x.get("name") or x.get("title")
+        return x.strip() if isinstance(x, str) and x.strip() else None
+
+    def walk(o):
+        nonlocal title
+        if isinstance(o, dict):
+            for k in ("conversationTitle", "conversation_title", "title"):
+                if title is None and isinstance(o.get(k), str) and o[k].strip():
+                    title = o[k].strip()
+            txt = o.get("text") or o.get("message")
+            if isinstance(txt, str) and txt.strip():
+                sender = name_of(o.get("sender")) or name_of(o.get("person")) or name_of(o.get("senderName"))
+                line = f"{sender}: {txt.strip()}" if sender else txt.strip()
+                if line not in out:
+                    out.append(line)
+            for v in o.values():
+                if isinstance(v, (dict, list)):
+                    walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    walk(obj)
+    return title, out
+
+
 def _is_summary(text: str) -> bool:
     low = text.strip().lower()
     return (low.startswith(("новые сообщения", "new messages", "mesaje noi"))
@@ -106,20 +152,29 @@ def make_app(db: RidesDB, notifier: Notifier) -> web.Application:
             return web.json_response({"ok": False, "error": "bad key"}, status=403)
         data: dict = dict(request.query)
         if request.can_read_body:
-            try:
-                if "json" in (request.content_type or ""):
-                    data.update(await request.json())
+            body = await request.text()
+            if "form" in (request.content_type or ""):
+                data.update(dict(await request.post()))
+            elif body.strip():
+                try:
+                    obj = json.loads(body)
+                except ValueError:
+                    obj = None
+                if isinstance(obj, dict) and any(k in obj for k in ("title", "text", "lines", "big")):
+                    data.update(obj)
                 else:
-                    data.update(dict(await request.post()))
-            except Exception:  # noqa: BLE001 — тело не JSON и не форма
-                data.setdefault("text", await request.text())
-        title = str(data.get("title") or data.get("notification_title") or "")
-        text = str(data.get("text") or data.get("notification") or data.get("message") or "")
-        # Viber сворачивает сообщения группы в сводку «Новые сообщения в …» — сами сообщения
-        # приходят в «строках текста» (lines) или «развёрнутом тексте» (big). Берём каждое.
-        extra = "\n".join(str(data.get(k) or "") for k in ("lines", "big", "bigtext", "text_lines", "ticker"))
-        raw = {k: str(v)[:120] for k, v in data.items() if k != "key" and str(v).strip()}
-        messages = [m for m in _split_messages(extra) if m] or [text]
+                    data.setdefault("conv", body)  # тело = %anconversation
+        data = {k: _clean(v) for k, v in data.items()}
+        title = data.get("title") or data.get("notification_title") or ""
+        text = data.get("text") or data.get("notification") or data.get("message") or ""
+        # Viber сворачивает сообщения группы в сводку «Новые сообщения в …». Сами сообщения —
+        # в переписке (conv = %anconversation) или в строках текста (lines/big). Берём каждое.
+        conv_title, conv_msgs = conversation_messages(data["conv"]) if data.get("conv") else (None, [])
+        if conv_title and (not title or _is_summary(title)):
+            title = conv_title
+        extra = "\n".join(data.get(k) or "" for k in ("lines", "big", "bigtext", "text_lines", "ticker"))
+        raw = {k: v[:700 if k == "conv" else 120] for k, v in data.items() if k != "key" and v}
+        messages = conv_msgs or [m for m in _split_messages(extra) if m] or [text]
         results = []
         for body in messages:
             if _is_summary(body):
