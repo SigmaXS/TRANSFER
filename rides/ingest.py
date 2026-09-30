@@ -5,8 +5,10 @@ POST https://<домен>/ingest?key=<INGEST_KEY>
 Берём только уведомления, в заголовке или тексте которых есть одно из слов VIBER_GROUPS
 (по умолчанию «попутчик») — личные переписки в бот не попадают.
 """
+import collections
 import hmac
 import logging
+import time
 import os
 import re
 from datetime import datetime
@@ -20,6 +22,9 @@ from .posts import post_from_group
 from .timeparse import TZ
 
 log = logging.getLogger("rides.ingest")
+
+# Последние входящие уведомления — для команды /ingestlog (диагностика)
+RECENT: collections.deque = collections.deque(maxlen=30)
 
 # «Андрей: Сегодня могу…» / «Андрей @ Попутчики: …» — отделяем автора от текста
 _SENDER_RE = re.compile(r"^\s*([^:\n]{1,40}?):\s+(.+)$", re.S)
@@ -93,8 +98,10 @@ def make_app(db: RidesDB, notifier: Notifier) -> web.Application:
             result = await process(db, notifier, title, text)
         except Exception as e:  # noqa: BLE001
             log.exception("ingest")
-            return web.json_response({"ok": False, "error": str(e)}, status=500)
-        return web.json_response(result)
+            result = {"ok": False, "error": str(e)}
+        RECENT.append((time.time(), title[:80], text[:160], result))
+        log.info("ingest | %s | %s | %s", title[:60], text[:80].replace("\n", " "), result)
+        return web.json_response(result, status=200 if result.get("ok") else 500)
 
     async def health(_request):
         return web.Response(text="ok")

@@ -839,3 +839,25 @@ async def paste_item(msg: Message, state: FSMContext, rides_db: RidesDB, notifie
     await msg.reply(f"✅ {'🙋' if saved['kind'] == PASSENGER else '🚗'} {route} · "
                     f"{trip_label(saved['trip_at'], saved['has_time'], saved['when_label'])} · "
                     f"отправлено {who}: {sent}")
+
+
+@router.message(Command("ingestlog"), F.from_user.id.in_(ADMIN_IDS))
+async def ingest_log(msg: Message):
+    """/ingestlog — последние уведомления, пришедшие с телефона (Viber), и что с ними сделал бот."""
+    from .ingest import RECENT
+    from .timeparse import TZ as _TZ
+    if not RECENT:
+        await msg.answer("С телефона пока ничего не приходило с момента последнего запуска бота.")
+        return
+    reasons = {"not a rides group": "не группа попутчиков", "not a ride": "не заявка",
+               "duplicate": "дубль", "empty": "пустое"}
+    lines = ["📥 <b>Последние уведомления с телефона</b>\n"]
+    for ts, title, text, res in list(RECENT)[-15:]:
+        t = datetime.fromtimestamp(ts, _TZ).strftime("%H:%M:%S")
+        if res.get("kind"):
+            verdict = f"✅ {res.get('from')} → {res.get('to')}, отправлено {res.get('sent')}"
+        else:
+            verdict = "⏭ " + reasons.get(res.get("skipped", ""), res.get("skipped") or res.get("error", "?"))
+        lines.append(f"<b>{t}</b> {verdict}\n<code>{html.escape(title or '(без заголовка)')}</code>\n"
+                     f"{html.escape(text or '(без текста)')}\n")
+    await msg.answer("\n".join(lines)[:4000], parse_mode="HTML")
