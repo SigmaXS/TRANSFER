@@ -37,6 +37,11 @@ DEFAULT_QUERIES = [
     "рыбница такси", "комрат", "кагул", "кишинев одесса", "кишинев яссы", "молдова италия",
     "молдова пассажирские перевозки", "chisinau transport", "transport pasageri", "caut transport",
     "calatorii chisinau", "moldova italia transport", "taxi chisinau",
+    # север и юг Молдовы
+    "попутчики бельцы", "бельцы кишинев", "такси бельцы", "единцы", "сороки такси", "дрокия",
+    "рышканы", "флорешты", "унгены такси", "оргеев такси", "кагул кишинев", "комрат кишинев",
+    "попутчики молдова пмр", "balti chisinau", "transport balti", "taxi balti", "edinet transport",
+    "soroca chisinau", "cahul chisinau", "ungheni chisinau",
 ]
 
 
