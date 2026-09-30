@@ -12,6 +12,7 @@ from rides.db import RidesDB
 from rides.handlers import ADMIN_IDS, router as rides_router
 from rides.listener import Watcher, make_client
 from rides.notifier import Notifier
+from rides.ingest import run_server
 from rides.web import poll_sites
 
 # Всё берётся из переменных окружения (Railway → Variables). Токен в коде не храним.
@@ -83,6 +84,7 @@ async def main():
     dp.include_router(rides_router)
     await setup_profile(bot)
 
+    await run_server(rides_db, notifier)  # приём заявок с телефона (Viber)
     tasks = [dp.start_polling(bot), poll_sites(rides_db)]
     if watcher:
         tasks.append(client.run_until_disconnected())

@@ -26,6 +26,7 @@ _DRIVER_KW = [
     "есть места", "есть место", "есть свободн", "свободные места", "свободное место",
     "свободных мест", "возьму", "возьмем", "возьмём", "ищу пассажир", "ищу попутчик",
     "выезжаю", "выезд в", "отправление", "еду из", "еду в ", "едем из", "поеду из",
+    "могу взять", "могу отвезти", "могу подвезти", "могу забрать", "могу сейчас", "могу в ",
     "locuri libere", "loc liber", "iau pasager", "caut pasager", "plec din", "plec spre",
     "plecam", "plecăm", "am locuri", "dispun de",
 ]
@@ -165,12 +166,33 @@ def _when(norm: str, p: Parsed):
             break
 
 
+_MONTHS = {"январ": 1, "феврал": 2, "март": 3, "апрел": 4, "ма": 5, "июн": 6, "июл": 7, "август": 8,
+           "сентябр": 9, "октябр": 10, "ноябр": 11, "декабр": 12,
+           "ianuarie": 1, "februarie": 2, "martie": 3, "aprilie": 4, "mai": 5, "iunie": 6, "iulie": 7,
+           "august": 8, "septembrie": 9, "octombrie": 10, "noiembrie": 11, "decembrie": 12}
+_MONTH_DATE_RE = re.compile(r"(?<!\d)([0-3]?\d)\s+(январ\w*|феврал\w*|март\w*|апрел\w*|ма[яий]|июн\w*|июл\w*|"
+                            r"август\w*|сентябр\w*|октябр\w*|ноябр\w*|декабр\w*|ianuarie|februarie|martie|"
+                            r"aprilie|mai|iunie|iulie|august|septembrie|octombrie|noiembrie|decembrie)\b")
+
+
+def _month_date(norm: str) -> str | None:
+    m = _MONTH_DATE_RE.search(norm)
+    if not m:
+        return None
+    word = m.group(2)
+    month = next((v for k, v in _MONTHS.items() if word.startswith(k) and (k != "ма" or len(word) <= 3)), None)
+    day = int(m.group(1))
+    return f"{day:02d}.{month:02d}" if month and 1 <= day <= 31 else None
+
+
 def parse_message(text: str) -> Parsed:
     norm = normalize(text)
     p = Parsed(text=text)
     p.fingerprint = hashlib.sha1(re.sub(r"\s+", " ", norm).strip().encode()).hexdigest()
     p.from_place, p.to_place, p.places = _route(norm)
     _when(norm, p)
+    if not p.date:
+        p.date = _month_date(norm)
 
     m = _PEOPLE_RE.search(norm)
     if m:
