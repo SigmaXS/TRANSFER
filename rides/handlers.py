@@ -16,7 +16,7 @@ from aiogram.types import (CallbackQuery, InlineKeyboardButton as Btn, InlineKey
                            KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove)
 
 from .db import DRIVER_ROLE, PASSENGER_ROLE, RidesDB, want_for
-from .filters import ALL, EUROPE, MOLDOVA, PMR_ONLY, ROUTE, UKRAINE, Filter, matches
+from .filters import ALL, EUROPE, MOLDOVA, NEARBY_KM, PMR_ONLY, ROUTE, UKRAINE, Filter, matches
 from .parsing import DRIVER, PASSENGER, parse_message
 from .places import POPULAR, resolve_place
 from .posts import format_post, post_from_bot, post_keyboard, post_to_parsed
@@ -80,12 +80,22 @@ def main_menu(role: str, active: bool) -> InlineKeyboardMarkup:
 
 def filter_kinds() -> InlineKeyboardMarkup:
     return kb([
-        [("🛣 Маршрут: откуда → куда", "r:add:route")],
-        [("🇲🇩 Вся Молдова", "r:add:md"), ("🔴 Только ПМР", "r:add:pmr")],
+        [("📍 Из моего города → куда угодно / куда нужно", "r:add:route")],
+        [("🔴 Все заявки ПМР", "r:add:pmr"), ("🇲🇩 Вся Молдова", "r:add:md")],
         [("🇺🇦 Украина", "r:add:ua"), ("🇪🇺 Европа", "r:add:eu")],
-        [("🌍 Все", "r:add:all")],
+        [("🌍 Вообще все", "r:add:all")],
         [("« Назад", "r:home")],
     ])
+
+
+def to_kb() -> InlineKeyboardMarkup:
+    rows = [[("➡️ Куда угодно", "r:to:any")],
+            [("🔴 В ПМР", "r:to:@pmr"), ("🇲🇩 По Молдове", "r:to:@md")],
+            [("🇺🇦 В Украину", "r:to:@ua"), ("🇪🇺 В Европу", "r:to:@eu")]]
+    rows += [[(name, f"r:to:{i}") for i, name in list(enumerate(POPULAR))[j:j + 3]]
+             for j in range(0, len(POPULAR), 3)]
+    rows.append([("✖️ Отмена", "r:home")])
+    return kb(rows)
 
 
 def places_kb(prefix: str, allow_any: bool) -> InlineKeyboardMarkup:
@@ -141,6 +151,11 @@ async def show_home(target: Message, db: RidesDB, user_id: int, edit: bool = Fal
 @router.message(Command("driver"))
 async def start(msg: Message, rides_db: RidesDB, state: FSMContext):
     await state.clear()
+    try:  # убираем старую нижнюю кнопку «Заказать трансфер», если она осталась у человека
+        m = await msg.answer("…", reply_markup=ReplyKeyboardRemove())
+        await m.delete()
+    except Exception:  # noqa: BLE001
+        pass
     u, _ = await rides_db.ensure_user(msg.from_user.id, msg.from_user.username, TRIAL_DAYS)
     if not u.role:
         await msg.answer(
@@ -210,18 +225,32 @@ async def add_region(cb: CallbackQuery, rides_db: RidesDB):
 
 
 @router.callback_query(F.data == "r:add:route")
-async def route_start(cb: CallbackQuery, state: FSMContext):
+async def route_start(cb: CallbackQuery, state: FSMContext, rides_db: RidesDB):
+    u = await rides_db.get_user(cb.from_user.id)
+    q = ("Откуда вы едете?" if u and u.role == PASSENGER_ROLE
+         else "Откуда вы выезжаете / где забираете пассажиров?")
     await state.set_state(RouteForm.from_place)
-    await answer_or_edit(cb.message, "📍 <b>Откуда?</b>\nВыберите или напишите название города/села.",
-                         places_kb("r:from", allow_any=True), edit=True)
+    await answer_or_edit(cb.message, f"📍 <b>{q}</b>\nВыберите или напишите город/село.\n"
+                         f"<i>Близкие места тоже подойдут: например, Тирасполь — это ещё Бендеры, "
+                         f"Парканы, Слободзея (до {int(NEARBY_KM)} км).</i>",
+                         places_kb("r:from", allow_any=False), edit=True)
     await cb.answer()
 
 
 async def _route_ask_to(target: Message, state: FSMContext, from_place, edit: bool):
     await state.update_data(from_place=from_place)
     await state.set_state(RouteForm.to_place)
-    await answer_or_edit(target, f"Откуда: <b>{from_place or 'любой город'}</b>\n\n🏁 <b>Куда?</b>",
-                         places_kb("r:to", allow_any=from_place is not None), edit)
+    await answer_or_edit(target, f"Откуда: <b>{from_place} и рядом</b>\n\n🏁 <b>Куда?</b>\n"
+                         "Если направление не важно — «Куда угодно».", to_kb(), edit)
+
+
+async def _route_save(target: Message, state: FSMContext, db: RidesDB, user, to_spec, both: bool):
+    data = await state.get_data()
+    u, _ = await db.ensure_user(user.id, user.username, TRIAL_DAYS)
+    f = Filter(ROUTE, data.get("from_place"), to_spec, both_ways=both)
+    await db.add_filter(user.id, f, want_for(u.role))
+    await state.clear()
+    await show_home(target, db, user.id, edit=True)
 
 
 async def _route_ask_dir(target: Message, state: FSMContext, to_place, edit: bool):
@@ -231,7 +260,7 @@ async def _route_ask_dir(target: Message, state: FSMContext, to_place, edit: boo
         await target.answer("Откуда и куда совпадают — выберите другой пункт.")
         return
     await answer_or_edit(
-        target, f"Маршрут: <b>{frm or 'любой'} → {to_place or 'любой'}</b>\n\nВ обе стороны?",
+        target, f"Маршрут: <b>{frm} → {to_place}</b> (и ближайшие места)\n\nВ обе стороны?",
         kb([[("⇄ Туда и обратно", "r:dir:1"), ("→ Только туда", "r:dir:0")], [("✖️ Отмена", "r:home")]]),
         edit)
 
@@ -253,14 +282,21 @@ async def route_from_text(msg: Message, state: FSMContext):
 
 
 @router.callback_query(RouteForm.to_place, F.data.startswith("r:to:"))
-async def route_to_btn(cb: CallbackQuery, state: FSMContext):
-    val = cb.data.rsplit(":", 1)[1]
-    await _route_ask_dir(cb.message, state, None if val == "any" else POPULAR[int(val)], edit=True)
+async def route_to_btn(cb: CallbackQuery, state: FSMContext, rides_db: RidesDB):
+    val = cb.data.split(":", 2)[2]
+    if val == "any" or val.startswith("@"):
+        await cb.answer("Фильтр сохранён ✅")
+        await _route_save(cb.message, state, rides_db, cb.from_user, None if val == "any" else val, False)
+        return
+    await _route_ask_dir(cb.message, state, POPULAR[int(val)], edit=True)
     await cb.answer()
 
 
 @router.message(RouteForm.to_place, F.text)
-async def route_to_text(msg: Message, state: FSMContext):
+async def route_to_text(msg: Message, state: FSMContext, rides_db: RidesDB):
+    if msg.text.strip().lower() in {"любой", "любое", "куда угодно", "везде", "все", "всё", "-"}:
+        await _route_save(msg, state, rides_db, msg.from_user, None, False)
+        return
     place = resolve_place(msg.text)
     if not place:
         await msg.answer("Не нашёл такой населённый пункт 🤔 Попробуйте иначе или выберите кнопкой.")
@@ -271,12 +307,8 @@ async def route_to_text(msg: Message, state: FSMContext):
 @router.callback_query(RouteForm.to_place, F.data.startswith("r:dir:"))
 async def route_save(cb: CallbackQuery, state: FSMContext, rides_db: RidesDB):
     data = await state.get_data()
-    u, _ = await rides_db.ensure_user(cb.from_user.id, cb.from_user.username, TRIAL_DAYS)
-    await rides_db.add_filter(cb.from_user.id, Filter(ROUTE, data.get("from_place"), data.get("to_place"),
-                                                      both_ways=cb.data == "r:dir:1"), want_for(u.role))
-    await state.clear()
     await cb.answer("Маршрут сохранён ✅")
-    await show_home(cb.message, rides_db, cb.from_user.id, edit=True)
+    await _route_save(cb.message, state, rides_db, cb.from_user, data.get("to_place"), cb.data == "r:dir:1")
 
 
 @router.callback_query(F.data == "r:list")

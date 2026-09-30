@@ -1,44 +1,78 @@
-"""Фильтры водителя: вся Молдова, только ПМР, всё подряд или конкретный маршрут."""
+"""Фильтры: откуда (город + всё рядом) → куда (любое / регион / город), либо целый регион."""
+import os
 from dataclasses import dataclass
 
 from .parsing import Parsed
-from .places import EU, MD, PMR, UA
+from .places import COORDS, EU, MD, PMR, UA, distance_km, region_of
 
 ALL, MOLDOVA, PMR_ONLY, UKRAINE, EUROPE, ROUTE = "all", "md", "pmr", "ua", "eu", "route"
+
+NEARBY_KM = float(os.environ.get("RIDES_NEARBY_KM", "25"))
+
+# В маршруте вместо города можно указать целый регион: "@pmr", "@md", "@ua", "@eu"
+REGION_SPECS = {"@pmr": PMR, "@md": MD, "@ua": UA, "@eu": EU}
+REGION_TO_LABEL = {"@pmr": "в ПМР", "@md": "по Молдове", "@ua": "в Украину", "@eu": "в Европу"}
+REGION_FROM_LABEL = {"@pmr": "из ПМР", "@md": "из Молдовы", "@ua": "из Украины", "@eu": "из Европы"}
 
 
 @dataclass
 class Filter:
     kind: str                       # all | md | pmr | ua | eu | route
-    from_place: str | None = None   # для route
-    to_place: str | None = None     # для route
+    from_place: str | None = None   # для route: город, "@регион" или None (любой)
+    to_place: str | None = None
     both_ways: bool = True
     id: int | None = None
 
     def title(self) -> str:
         if self.kind == ALL:
-            return "🌍 Все заявки"
+            return "🌍 Все"
         if self.kind == MOLDOVA:
-            return "🇲🇩 По Молдове"
+            return "🇲🇩 Вся Молдова"
         if self.kind == PMR_ONLY:
-            return "🔴 ПМР"
+            return "🔴 Все заявки ПМР"
         if self.kind == UKRAINE:
             return "🇺🇦 Украина"
         if self.kind == EUROPE:
             return "🇪🇺 Европа"
-        arrow = "⇄" if self.both_ways else "→"
-        return f"🛣 {self.from_place or 'любой'} {arrow} {self.to_place or 'любой'}"
+        frm = self._label(self.from_place, REGION_FROM_LABEL, "откуда угодно")
+        to = self._label(self.to_place, REGION_TO_LABEL, "куда угодно")
+        arrow = "⇄" if self.both_ways and self.from_place and self.to_place else "→"
+        return f"🛣 {frm} {arrow} {to}"
+
+    @staticmethod
+    def _label(spec, region_labels, empty):
+        if spec is None:
+            return empty
+        if spec in region_labels:
+            return region_labels[spec]
+        return f"{spec} и рядом" if spec in COORDS else spec
+
+
+def spec_matches(spec: str | None, place: str | None) -> bool | None:
+    """True — подходит, False — нет, None — в заявке этот конец не указан."""
+    if spec is None:
+        return True
+    if place is None:
+        return None
+    if spec in REGION_SPECS:
+        return region_of(place) == REGION_SPECS[spec]
+    if place == spec:
+        return True
+    d = distance_km(spec, place)
+    return d is not None and d <= NEARBY_KM
 
 
 def _route_ok(frm_f, to_f, p: Parsed) -> bool:
-    """Маршрут фильтра совпадает с заявкой; если в заявке указан только один
-    конец (например, «кто едет в Кишинёв?»), достаточно совпадения этого конца."""
+    """Если в заявке указан только один конец («кто едет в Кишинёв?»), достаточно, чтобы
+    совпал он, а второй конец фильтра был бы не противоречащим."""
     if not p.has_route:
         return False
-    from_ok = p.from_place is None or frm_f is None or p.from_place == frm_f
-    to_ok = p.to_place is None or to_f is None or p.to_place == to_f
-    hit = (frm_f and p.from_place == frm_f) or (to_f and p.to_place == to_f)
-    return bool(from_ok and to_ok and hit)
+    fr, to = spec_matches(frm_f, p.from_place), spec_matches(to_f, p.to_place)
+    if fr is False or to is False:
+        return False
+    if frm_f is None and to_f is None:
+        return True
+    return (frm_f is not None and fr is True) or (to_f is not None and to is True)
 
 
 def matches(f: Filter, p: Parsed) -> bool:
@@ -57,5 +91,6 @@ def matches(f: Filter, p: Parsed) -> bool:
     if f.kind == ROUTE:
         if _route_ok(f.from_place, f.to_place, p):
             return True
-        return f.both_ways and _route_ok(f.to_place, f.from_place, p)
+        return bool(f.both_ways and f.from_place and f.to_place
+                    and _route_ok(f.to_place, f.from_place, p))
     return False

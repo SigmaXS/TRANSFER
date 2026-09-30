@@ -6,7 +6,7 @@ import os
 import asyncpg
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import BotCommand
+from aiogram.types import BotCommand, MenuButtonCommands
 
 from rides.db import RidesDB
 from rides.handlers import router as rides_router
@@ -40,6 +40,7 @@ async def setup_profile(bot: Bot):
         if (await bot.get_my_description()).description != BOT_DESCRIPTION:
             await bot.set_my_description(BOT_DESCRIPTION)
         await bot.set_my_commands([BotCommand(command="start", description="Главное меню и фильтры")])
+        await bot.set_chat_menu_button(menu_button=MenuButtonCommands())  # вместо старой кнопки приложения
     except Exception as e:  # noqa: BLE001 — профиль не критичен для работы
         log.warning("Не удалось обновить профиль бота: %s", e)
 
