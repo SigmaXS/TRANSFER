@@ -10,6 +10,7 @@ import hmac
 import json
 import logging
 import time
+import unicodedata
 import os
 import re
 from datetime import datetime
@@ -31,9 +32,19 @@ RECENT: collections.deque = collections.deque(maxlen=30)
 _SENDER_RE = re.compile(r"^\s*([^:\n]{1,40}?):\s+(.+)$", re.S)
 
 
+# По умолчанию читаем только эти Viber-группы (сравнение по названию, без эмодзи и регистра)
+DEFAULT_VIBER_GROUPS = "попутчики_md,попутчики приднестровье"
+
+
+def _norm(s: str) -> str:
+    """«🚘Попутчики_ⓂⒹ🚘» → «попутчики_md»: буквы в кружках → обычные, эмодзи прочь."""
+    s = unicodedata.normalize("NFKC", s or "").casefold()
+    return re.sub(r"\s+", " ", "".join(ch for ch in s if ch.isalnum() or ch in " _-/")).strip()
+
+
 def _groups() -> list[str]:
-    raw = os.environ.get("VIBER_GROUPS", "попутчик")
-    return [g.strip().lower() for g in raw.split(",") if g.strip()]
+    raw = os.environ.get("VIBER_GROUPS", DEFAULT_VIBER_GROUPS)
+    return [_norm(g) for g in raw.split(",") if _norm(g)]
 
 
 def split_sender(title: str, text: str) -> tuple[str, str | None, str]:
@@ -51,7 +62,7 @@ def split_sender(title: str, text: str) -> tuple[str, str | None, str]:
 
 async def process(db: RidesDB, notifier: Notifier, title: str, text: str) -> dict:
     groups = _groups()
-    haystack = f"{title}\n{text}".lower()
+    haystack = _norm(title)  # только название группы, не текст сообщения
     if groups and not any(g in haystack for g in groups):
         return {"ok": True, "skipped": "not a rides group"}
     group, sender, body = split_sender(title, text)
