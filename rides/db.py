@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS ride_seen (
 CREATE TABLE IF NOT EXISTS ride_posts (
     id SERIAL PRIMARY KEY,
     ts DOUBLE PRECISION,
-    source TEXT,                 -- 'group' | 'bot'
+    source TEXT,                 -- 'group' | 'bot' | 'site'
     chat TEXT, link TEXT,
     kind TEXT,                   -- 'passenger' ищет машину | 'driver' есть места
     from_place TEXT, to_place TEXT, places TEXT[],
@@ -59,6 +59,14 @@ CREATE TABLE IF NOT EXISTS ride_posts (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ride_posts_fp ON ride_posts (fingerprint);
 CREATE INDEX IF NOT EXISTS ride_posts_live ON ride_posts (kind, expires_at);
+
+-- Группы, добавленные админом из бота (в дополнение к sources.txt и RIDES_SOURCES)
+CREATE TABLE IF NOT EXISTS ride_sources (
+    id SERIAL PRIMARY KEY,
+    ref TEXT UNIQUE,             -- @username, ссылка-приглашение или числовой id
+    title TEXT,
+    added_at DOUBLE PRECISION
+);
 
 -- Только метаданные заявок из групп: для подсчёта спроса (/stats)
 CREATE TABLE IF NOT EXISTS ride_requests (
@@ -179,11 +187,36 @@ class RidesDB:
             " RETURNING *", *(post.get(k) for k in POST_FIELDS))
         return dict(r) if r else None
 
+    async def upsert_site_post(self, post: dict) -> tuple[dict, bool]:
+        """Объявление с сайта: при «поднятии» обновляем время. Возвращает (строка, новое ли)."""
+        cols = ", ".join(POST_FIELDS)
+        args = ", ".join(f"${i}" for i in range(1, len(POST_FIELDS) + 1))
+        r = await self.pool.fetchrow(
+            f"INSERT INTO ride_posts ({cols}) VALUES ({args}) ON CONFLICT (fingerprint) DO UPDATE SET"
+            " ts=EXCLUDED.ts, trip_at=EXCLUDED.trip_at, expires_at=EXCLUDED.expires_at,"
+            " text=EXCLUDED.text, active=TRUE RETURNING *, (xmax = 0) AS is_new",
+            *(post.get(k) for k in POST_FIELDS))
+        row = dict(r)
+        return row, row.pop("is_new")
+
+    # --- источники ---
+    async def add_source(self, ref: str, title: str | None):
+        await self.pool.execute(
+            "INSERT INTO ride_sources (ref, title, added_at) VALUES ($1,$2,$3)"
+            " ON CONFLICT (ref) DO UPDATE SET title=EXCLUDED.title", ref, title, time.time())
+
+    async def list_sources(self) -> list[dict]:
+        return [dict(r) for r in await self.pool.fetch("SELECT * FROM ride_sources ORDER BY id")]
+
+    async def remove_source(self, source_id: int) -> dict | None:
+        r = await self.pool.fetchrow("DELETE FROM ride_sources WHERE id=$1 RETURNING *", source_id)
+        return dict(r) if r else None
+
     async def live_posts(self, kind: str, limit: int = 300) -> list[dict]:
         """Актуальные объявления: сначала ближайшие по времени поездки."""
         rows = await self.pool.fetch(
             "SELECT * FROM ride_posts WHERE active AND kind=$1 AND expires_at > $2"
-            " ORDER BY trip_at, ts DESC LIMIT $3", kind, time.time(), limit)
+            " ORDER BY is_ad, trip_at, ts DESC LIMIT $3", kind, time.time(), limit)
         return [dict(r) for r in rows]
 
     async def my_posts(self, user_id: int) -> list[dict]:

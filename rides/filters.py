@@ -75,6 +75,14 @@ def _route_ok(frm_f, to_f, p: Parsed) -> bool:
     return (frm_f is not None and fr is True) or (to_f is not None and to is True)
 
 
+def _carrier_ok(f: Filter, p: Parsed) -> bool:
+    """Перевозчики и такси ездят в обе стороны и по всем городам из объявления:
+    подходит, если в объявлении есть и «откуда», и «куда» фильтра."""
+    def any_hit(spec):
+        return spec is None or any(spec_matches(spec, place) for place in p.places)
+    return bool((f.from_place or f.to_place) and any_hit(f.from_place) and any_hit(f.to_place))
+
+
 def matches(f: Filter, p: Parsed) -> bool:
     if not p.places:
         return False
@@ -90,6 +98,8 @@ def matches(f: Filter, p: Parsed) -> bool:
         return EU in p.regions
     if f.kind == ROUTE:
         if _route_ok(f.from_place, f.to_place, p):
+            return True
+        if p.is_ad and _carrier_ok(f, p):
             return True
         return bool(f.both_ways and f.from_place and f.to_place
                     and _route_ok(f.to_place, f.from_place, p))

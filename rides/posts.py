@@ -46,7 +46,8 @@ def post_from_bot(*, kind: str, from_place: str, to_place: str, when: str | None
 def post_to_parsed(post: dict) -> Parsed:
     """Для проверки фильтров."""
     return Parsed(text=post.get("text") or "", kind=post["kind"], from_place=post["from_place"],
-                  to_place=post["to_place"], places=list(post.get("places") or []))
+                  to_place=post["to_place"], places=list(post.get("places") or []),
+                  is_ad=bool(post.get("is_ad")))
 
 
 def format_post(post: dict, show_age: bool = False) -> str:
@@ -56,10 +57,16 @@ def format_post(post: dict, show_age: bool = False) -> str:
     else:
         head = "🚗 <b>Свободная машина</b>" + (" · перевозчик" if post.get("is_ad") else "")
     frm, to = post.get("from_place"), post.get("to_place")
-    route = f"{frm or '?'} → {to or '?'}" if (frm or to) else ", ".join(post.get("places") or [])
+    if post.get("is_ad") and frm and not to:
+        route = f"{frm} → разные направления"
+    else:
+        route = f"{frm or '?'} → {to or '?'}" if (frm or to) else ", ".join(post.get("places") or [])
     lines = [head, f"📍 <b>{html.escape(route)}</b>"]
-    when = trip_label(post["trip_at"], post["has_time"], post.get("when_label"))
-    lines.append(f"🕐 {when}" + (f" · написали {ago(post['ts'])}" if show_age else ""))
+    if post.get("source") == "site":
+        lines.append(f"🕐 по звонку · объявление обновлено {ago(post['ts'])}")
+    else:
+        when = trip_label(post["trip_at"], post["has_time"], post.get("when_label"))
+        lines.append(f"🕐 {when}" + (f" · написали {ago(post['ts'])}" if show_age else ""))
     if post.get("people"):
         lines.append(f"👤 {post['people']} чел.")
     if post.get("seats"):
@@ -78,7 +85,8 @@ def format_post(post: dict, show_age: bool = False) -> str:
         who = html.escape(post.get("author_name") or "")
     if post.get("phone"):
         lines.append(f"📞 {html.escape(post['phone'])}")
-    source = f"💬 {html.escape(post['chat'])}" if post.get("source") == "group" else "📱 Объявление в боте"
+    source = {"group": f"💬 {html.escape(post.get('chat') or '')}",
+              "site": f"🌐 {html.escape(post.get('chat') or 'сайт')}"}.get(post.get("source"), "📱 Объявление в боте")
     lines.append(f"\n{source}" + (f" · {who}" if who else ""))
     return "\n".join(lines)
 
@@ -88,5 +96,6 @@ def post_keyboard(post: dict) -> InlineKeyboardMarkup | None:
     if post.get("author_username"):
         row.append(InlineKeyboardButton(text="✉️ Написать", url=f"https://t.me/{post['author_username']}"))
     if post.get("link"):
-        row.append(InlineKeyboardButton(text="🔗 В группе", url=post["link"]))
+        label = "🌐 Объявление на сайте" if post.get("source") == "site" else "🔗 В группе"
+        row.append(InlineKeyboardButton(text=label, url=post["link"]))
     return InlineKeyboardMarkup(inline_keyboard=[row]) if row else None

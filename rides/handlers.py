@@ -680,3 +680,110 @@ async def stats(msg: Message, command: CommandObject, rides_db: RidesDB):
 @router.message(Command("myid"))
 async def myid(msg: Message):
     await msg.answer(f"Ваш ID: <code>{msg.from_user.id}</code>", parse_mode="HTML")
+
+
+# ---------------- источники: группы Telegram (админ) ----------------
+
+def _members(n: int) -> str:
+    return f"{n / 1000:.1f}k".replace(".0k", "k") if n >= 1000 else str(n)
+
+
+@router.message(Command("findgroups"), F.from_user.id.in_(ADMIN_IDS))
+async def find_groups(msg: Message, command: CommandObject, watcher):
+    """/findgroups [запрос] — найти публичные группы попутчиков в Telegram."""
+    if watcher is None:
+        await msg.answer("Чтение групп выключено: не заданы TG_API_ID / TG_API_HASH / TG_SESSION.")
+        return
+    from .listener import DEFAULT_QUERIES
+    queries = [command.args] if command.args else DEFAULT_QUERIES
+    wait = await msg.answer(f"🔎 Ищу группы в Telegram ({len(queries)} запросов)… это ~{len(queries) * 2} с")
+    found = [g for g in await watcher.search(queries) if not g["watched"]]
+    try:
+        await wait.delete()
+    except Exception:  # noqa: BLE001
+        pass
+    if not found:
+        await msg.answer("Новых групп не нашёл. Попробуйте свой запрос: /findgroups бельцы такси")
+        return
+    top = found[:25]
+    lines = ["🔎 <b>Найденные группы</b> (👥 — участников, 📢 — канал, а не группа).\n"
+             "Нажмите, чтобы бот начал их читать:\n"]
+    for g in top:
+        icon = "👥" if g["is_group"] else "📢"
+        lines.append(f"{icon} {_members(g['members'])} · <a href=\"https://t.me/{g['username']}\">"
+                     f"{html.escape(g['title'])}</a>")
+    rows = [[(f"➕ {g['title'][:40]} ({_members(g['members'])})", f"src:add:{g['username']}")] for g in top]
+    await msg.answer("\n".join(lines), reply_markup=kb(rows), parse_mode="HTML",
+                     disable_web_page_preview=True)
+
+
+async def _add_source(target: Message, ref_text: str, rides_db: RidesDB, watcher) -> None:
+    from .listener import normalize_ref
+    ref = normalize_ref(ref_text)
+    if ref is None:
+        await target.answer("Формат: /addsource @username или ссылка https://t.me/...")
+        return
+    if watcher is None:
+        await rides_db.add_source(str(ref), None)
+        await target.answer("Сохранил. Группа начнёт читаться, когда будет настроен аккаунт-читатель.")
+        return
+    try:
+        title = await watcher.watch(ref)
+    except Exception as e:  # noqa: BLE001
+        await target.answer(f"❌ Не получилось добавить {html.escape(str(ref))}: {html.escape(str(e))}",
+                            parse_mode="HTML")
+        return
+    await rides_db.add_source(str(ref), title)
+    await target.answer(f"✅ Читаю «{html.escape(title)}». История за {watcher.backfill_hours} ч "
+                        "загружается — заявки появятся в ленте через минуту.", parse_mode="HTML")
+
+
+@router.callback_query(F.data.startswith("src:add:"), F.from_user.id.in_(ADMIN_IDS))
+async def add_source_btn(cb: CallbackQuery, rides_db: RidesDB, watcher):
+    await cb.answer("Добавляю…")
+    await _add_source(cb.message, cb.data.split(":", 2)[2], rides_db, watcher)
+
+
+@router.message(Command("addsource"), F.from_user.id.in_(ADMIN_IDS))
+async def add_source_cmd(msg: Message, command: CommandObject, rides_db: RidesDB, watcher):
+    """/addsource @group или ссылка (можно несколько через пробел/запятую)."""
+    refs = [x for x in re.split(r"[\s,]+", command.args or "") if x]
+    if not refs:
+        await msg.answer("Формат: /addsource @username или https://t.me/... (можно несколько)")
+        return
+    for ref in refs:
+        await _add_source(msg, ref, rides_db, watcher)
+
+
+@router.message(Command("sources"), F.from_user.id.in_(ADMIN_IDS))
+async def list_sources(msg: Message, rides_db: RidesDB, watcher):
+    """/sources — какие группы и сайты читает бот."""
+    from .listener import load_sources
+    lines = ["📡 <b>Источники</b>"]
+    if watcher is not None:
+        lines.append(f"\n<b>Читаю сейчас ({len(watcher.chats)}):</b>")
+        lines += [f"• {html.escape(getattr(e, 'title', '') or str(cid))}" for cid, e in watcher.chats.items()]
+    else:
+        lines.append("\n⚠️ Аккаунт-читатель не настроен — группы не читаются.")
+    fixed = load_sources()
+    if fixed:
+        lines.append("\n<b>Из rides/sources.txt и RIDES_SOURCES</b> (меняются там):")
+        lines += [f"• {html.escape(str(r))}" for r in fixed]
+    added = await rides_db.list_sources()
+    web = os.environ.get("RIDES_WEB", "makler")
+    lines.append(f"\n🌐 <b>Сайты:</b> {'makler.md — перевозчики и такси' if 'makler' in web else 'выключены'}")
+    lines.append("\nДобавить: /findgroups или /addsource @группа")
+    rows = [[(f"🗑 {s['title'] or s['ref']}"[:60], f"src:del:{s['id']}")] for s in added]
+    await msg.answer("\n".join(lines), parse_mode="HTML", reply_markup=kb(rows) if rows else None)
+
+
+@router.callback_query(F.data.startswith("src:del:"), F.from_user.id.in_(ADMIN_IDS))
+async def del_source(cb: CallbackQuery, rides_db: RidesDB, watcher):
+    src = await rides_db.remove_source(int(cb.data.rsplit(":", 1)[1]))
+    if src and watcher is not None:
+        from .listener import normalize_ref
+        await watcher.unwatch(normalize_ref(src["ref"]))
+    await cb.answer("Удалено" if src else "Уже удалено")
+    if src:
+        await cb.message.answer(f"🗑 Больше не читаю «{html.escape(src['title'] or src['ref'])}».",
+                                parse_mode="HTML")
