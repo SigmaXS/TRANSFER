@@ -117,7 +117,8 @@ def make_app(db: RidesDB, notifier: Notifier) -> web.Application:
         text = str(data.get("text") or data.get("notification") or data.get("message") or "")
         # Viber сворачивает сообщения группы в сводку «Новые сообщения в …» — сами сообщения
         # приходят в «строках текста» (lines) или «развёрнутом тексте» (big). Берём каждое.
-        extra = "\n".join(str(data.get(k) or "") for k in ("lines", "big", "bigtext", "text_lines"))
+        extra = "\n".join(str(data.get(k) or "") for k in ("lines", "big", "bigtext", "text_lines", "ticker"))
+        raw = {k: str(v)[:120] for k, v in data.items() if k != "key" and str(v).strip()}
         messages = [m for m in _split_messages(extra) if m] or [text]
         results = []
         for body in messages:
@@ -129,7 +130,7 @@ def make_app(db: RidesDB, notifier: Notifier) -> web.Application:
                 except Exception as e:  # noqa: BLE001
                     log.exception("ingest")
                     result = {"ok": False, "error": str(e)}
-            RECENT.append((time.time(), title[:80], body[:160], result))
+            RECENT.append((time.time(), title[:80], body[:160], result, raw))
             log.info("ingest | %s | %s | %s", title[:60], body[:80].replace("\n", " "), result)
             results.append(result)
         ok = all(r.get("ok") for r in results)

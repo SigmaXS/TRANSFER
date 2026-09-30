@@ -853,12 +853,16 @@ async def ingest_log(msg: Message):
                "duplicate": "дубль", "empty": "пустое",
                "summary": "сводка Viber без текста — нужны поля lines/big"}
     lines = ["📥 <b>Последние уведомления с телефона</b>\n"]
-    for ts, title, text, res in list(RECENT)[-15:]:
+    for ts, title, text, res, *rest in list(RECENT)[-10:]:
+        raw = rest[0] if rest else {}
         t = datetime.fromtimestamp(ts, _TZ).strftime("%H:%M:%S")
         if res.get("kind"):
             verdict = f"✅ {res.get('from')} → {res.get('to')}, отправлено {res.get('sent')}"
         else:
             verdict = "⏭ " + reasons.get(res.get("skipped", ""), res.get("skipped") or res.get("error", "?"))
+        fields = "\n".join(f"  <i>{html.escape(k)}</i>: {html.escape(v)}" for k, v in raw.items()
+                           if k not in ("title", "text"))
         lines.append(f"<b>{t}</b> {verdict}\n<code>{html.escape(title or '(без заголовка)')}</code>\n"
-                     f"{html.escape(text or '(без текста)')}\n")
+                     f"{html.escape(text or '(без текста)')}\n" + (f"{fields}\n" if fields else
+                                                                    "  <i>других полей нет</i>\n"))
     await msg.answer("\n".join(lines)[:4000], parse_mode="HTML")
