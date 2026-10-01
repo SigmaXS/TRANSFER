@@ -36,9 +36,22 @@ _SENDER_RE = re.compile(r"^\s*([^:\n]{1,40}?):\s+(.+)$", re.S)
 DEFAULT_VIBER_GROUPS = "попутчики_md,попутчики приднестровье,по пути на юг молдовы"
 
 
+def _fancy_letters(s: str) -> str:
+    """🅜🅓 / 🄼🄳 / 🅼🅳 (буквы в квадратах и тёмных кружках) → md. NFKC их не раскладывает."""
+    out = []
+    for ch in s:
+        cp = ord(ch)
+        for base in (0x1F130, 0x1F150, 0x1F170):
+            if base <= cp < base + 26:
+                ch = chr(ord("a") + cp - base)
+                break
+        out.append(ch)
+    return "".join(out)
+
+
 def _norm(s: str) -> str:
-    """«🚘Попутчики_ⓂⒹ🚘» → «попутчики_md»: буквы в кружках → обычные, эмодзи прочь."""
-    s = unicodedata.normalize("NFKC", s or "").casefold()
+    """«🚘Попутчики_🅜🅓🚘» / «Попутчики_ⓂⒹ» → «попутчики_md»: буквы-значки → обычные, эмодзи прочь."""
+    s = unicodedata.normalize("NFKC", _fancy_letters(s or "")).casefold()
     return re.sub(r"\s+", " ", "".join(ch for ch in s if ch.isalnum() or ch in " _-/")).strip()
 
 
