@@ -236,6 +236,8 @@ def make_app(db: RidesDB, notifier: Notifier) -> web.Application:
         return web.Response(text="ok")
 
     app = web.Application()
+    from .api import make_api
+    make_api(app, db)                       # лента для приложения Taxi Radar
     app.router.add_post("/ingest", ingest)
     app.router.add_get("/ingest", ingest)   # некоторые приложения умеют только GET
     app.router.add_get("/", health)
