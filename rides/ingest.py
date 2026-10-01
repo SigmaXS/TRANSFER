@@ -60,7 +60,9 @@ def split_sender(title: str, text: str) -> tuple[str, str | None, str]:
     return group, sender, (text or "").strip()
 
 
-async def process(db: RidesDB, notifier: Notifier, title: str, text: str) -> dict:
+async def process(db: RidesDB, notifier: Notifier, title: str, text: str,
+                  posted_ts: float | None = None, history: bool = False) -> dict:
+    """posted_ts — время сообщения (для истории из приложения); history — не рассылать, только в ленту."""
     groups = _groups()
     haystack = _norm(title)  # только название группы, не текст сообщения
     if groups and not any(g in haystack for g in groups):
@@ -73,13 +75,22 @@ async def process(db: RidesDB, notifier: Notifier, title: str, text: str) -> dic
         if p.kind in (PASSENGER, DRIVER):
             log.info("Похоже на заявку, но город не распознан: %s", body[:200].replace("\n", " "))
         return {"ok": True, "skipped": "not a ride"}
-    if await db.seen_recently(p.fingerprint):
-        return {"ok": True, "skipped": "duplicate"}
-    post = post_from_group(p, chat=f"Viber · {group}"[:80], link=None, posted=datetime.now(TZ),
+    now = time.time()
+    if not posted_ts or posted_ts > now + 600 or posted_ts < now - 3 * 86400:
+        posted_ts = now
+    post = post_from_group(p, chat=f"Viber · {group}"[:80], link=None,
+                           posted=datetime.fromtimestamp(posted_ts, TZ),
                            author_id=None, username=None, name=sender)
+    if history and post["expires_at"] < now:
+        return {"ok": True, "skipped": "expired"}
+    if await db.seen_recently(p.fingerprint, ts=posted_ts):
+        return {"ok": True, "skipped": "duplicate"}
     saved = await db.save_post(post)
     if not saved:
         return {"ok": True, "skipped": "duplicate"}
+    if history:
+        log.info("Viber история %s | %s → %s", p.kind, p.from_place, p.to_place)
+        return {"ok": True, "kind": p.kind, "from": p.from_place, "to": p.to_place, "sent": 0, "history": True}
     await db.log_request(f"Viber · {group}", p, False)
     sent = await notifier.dispatch(saved)
     log.info("Viber %s | %s → %s | отправлено %d", p.kind, p.from_place, p.to_place, sent)
@@ -175,7 +186,7 @@ def make_app(db: RidesDB, notifier: Notifier) -> web.Application:
                     data.update(obj)
                 else:
                     data.setdefault("conv", body)  # тело = %anconversation
-        data = {k: _clean(v) for k, v in data.items()}
+        data = {k: _clean(v) for k, v in data.items()}  # JSON-числа и bool тоже станут строками
         title = data.get("title") or data.get("notification_title") or ""
         text = data.get("text") or data.get("notification") or data.get("message") or ""
         # Viber сворачивает сообщения группы в сводку «Новые сообщения в …». Сами сообщения —
@@ -192,7 +203,12 @@ def make_app(db: RidesDB, notifier: Notifier) -> web.Application:
                 result = {"ok": True, "skipped": "summary"}
             else:
                 try:
-                    result = await process(db, notifier, title, body)
+                    try:
+                        posted_ts = float(data.get("ts") or 0) or None
+                    except ValueError:
+                        posted_ts = None
+                    result = await process(db, notifier, title, body, posted_ts=posted_ts,
+                                           history=data.get("history") in ("1", "true", "True"))
                 except Exception as e:  # noqa: BLE001
                     log.exception("ingest")
                     result = {"ok": False, "error": str(e)}

@@ -850,14 +850,15 @@ async def ingest_log(msg: Message):
         await msg.answer("С телефона пока ничего не приходило с момента последнего запуска бота.")
         return
     reasons = {"not a rides group": "не группа попутчиков", "not a ride": "не заявка",
-               "duplicate": "дубль", "empty": "пустое",
+               "duplicate": "дубль", "empty": "пустое", "expired": "история: время уже прошло",
                "summary": "сводка Viber без текста — нужны поля lines/big"}
     lines = ["📥 <b>Последние уведомления с телефона</b>\n"]
     for ts, title, text, res, *rest in list(RECENT)[-10:]:
         raw = rest[0] if rest else {}
         t = datetime.fromtimestamp(ts, _TZ).strftime("%H:%M:%S")
         if res.get("kind"):
-            verdict = f"✅ {res.get('from')} → {res.get('to')}, отправлено {res.get('sent')}"
+            verdict = (f"📜 история: {res.get('from')} → {res.get('to')}, в ленте" if res.get("history")
+                       else f"✅ {res.get('from')} → {res.get('to')}, отправлено {res.get('sent')}")
         else:
             verdict = "⏭ " + reasons.get(res.get("skipped", ""), res.get("skipped") or res.get("error", "?"))
         fields = "\n".join(f"  <i>{html.escape(k)}</i>: {html.escape(v)}" for k, v in raw.items()
