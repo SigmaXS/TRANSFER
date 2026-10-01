@@ -280,6 +280,24 @@ COORDS: dict[str, tuple[float, float]] = {
 }
 
 
+_REGION_FROM = {MD: "Молдова", PMR: "ПМР", UA: "Украина", EU: "Европа"}
+
+
+def direction_label(frm: str | None, to: str | None) -> str | None:
+    """Направление поездки по городам: «по Молдове», «Молдова → ПМР», «ПМР → Украина»…
+    None — если ни один город не известен справочнику."""
+    a, b = region_of(frm), region_of(to)
+    if a and b:
+        if a == b:
+            return {MD: "по Молдове", PMR: "по ПМР", UA: "по Украине", EU: "по Европе"}[a]
+        return f"{_REGION_FROM[a]} → {_REGION_FROM[b]}"
+    if b:
+        return {MD: "в Молдову", PMR: "в ПМР", UA: "в Украину", EU: "в Европу"}[b]
+    if a:
+        return {MD: "из Молдовы", PMR: "из ПМР", UA: "из Украины", EU: "из Европы"}[a]
+    return None
+
+
 def distance_km(a: str, b: str) -> float | None:
     """Расстояние по прямой между двумя пунктами (None, если координат нет)."""
     import math

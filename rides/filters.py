@@ -3,7 +3,7 @@ import os
 from dataclasses import dataclass
 
 from .parsing import Parsed
-from .places import COORDS, EU, MD, PMR, UA, distance_km, region_of
+from .places import EU, MD, PMR, UA, direction_label, distance_km, region_of
 
 ALL, MOLDOVA, PMR_ONLY, UKRAINE, EUROPE, ROUTE = "all", "md", "pmr", "ua", "eu", "route"
 
@@ -37,7 +37,19 @@ class Filter:
         frm = self._label(self.from_place, REGION_FROM_LABEL, "откуда угодно")
         to = self._label(self.to_place, REGION_TO_LABEL, "куда угодно")
         arrow = "⇄" if self.both_ways and self.from_place and self.to_place else "→"
-        return f"🛣 {frm} {arrow} {to}"
+        title = f"🛣 {frm} {arrow} {to}"
+        direction = self.direction()
+        return f"{title} ({direction})" if direction else title
+
+    def direction(self) -> str | None:
+        """«по Молдове», «Молдова → ПМР» — бот определяет сам по выбранным городам."""
+        if self.kind != ROUTE:
+            return None
+        frm = None if (self.from_place or "").startswith("@") else self.from_place
+        to = None if (self.to_place or "").startswith("@") else self.to_place
+        if not frm and not to:
+            return None
+        return direction_label(frm, to)
 
     @staticmethod
     def _label(spec, region_labels, empty):
@@ -45,7 +57,7 @@ class Filter:
             return empty
         if spec in region_labels:
             return region_labels[spec]
-        return f"{spec} и рядом" if spec in COORDS else spec
+        return spec
 
 
 def spec_matches(spec: str | None, place: str | None) -> bool | None:
@@ -63,16 +75,13 @@ def spec_matches(spec: str | None, place: str | None) -> bool | None:
 
 
 def _route_ok(frm_f, to_f, p: Parsed) -> bool:
-    """Если в заявке указан только один конец («кто едет в Кишинёв?»), достаточно, чтобы
-    совпал он, а второй конец фильтра был бы не противоречащим."""
+    """Строгое совпадение: каждый конец, заданный в фильтре, должен быть указан в заявке
+    и совпасть (сам город или место рядом). Заявка «Кишинёв → ?» или «Кишинёв → Рыбница»
+    под фильтр «Кишинёв → Тирасполь» не попадает."""
     if not p.has_route:
         return False
     fr, to = spec_matches(frm_f, p.from_place), spec_matches(to_f, p.to_place)
-    if fr is False or to is False:
-        return False
-    if frm_f is None and to_f is None:
-        return True
-    return (frm_f is not None and fr is True) or (to_f is not None and to is True)
+    return fr is True and to is True
 
 
 def _carrier_ok(f: Filter, p: Parsed) -> bool:
