@@ -232,6 +232,13 @@ class RidesDB:
     async def cleanup(self):
         await self.pool.execute("DELETE FROM ride_posts WHERE expires_at < $1", time.time() - DAY)
 
+    async def reset_viber(self) -> int:
+        """Удалить все объявления из Viber (например, после неверно загруженной истории)
+        и сбросить антидубли, чтобы историю можно было загрузить заново."""
+        res = await self.pool.execute("DELETE FROM ride_posts WHERE chat LIKE 'Viber ·%'")
+        await self.pool.execute("DELETE FROM ride_seen")
+        return int(res.split()[-1]) if res else 0
+
     # --- антидубли ---
     async def seen_recently(self, fingerprint: str, window_hours: int = 12, ts: float | None = None) -> bool:
         now = ts or time.time()

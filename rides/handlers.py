@@ -841,6 +841,13 @@ async def paste_item(msg: Message, state: FSMContext, rides_db: RidesDB, notifie
                     f"отправлено {who}: {sent}")
 
 
+@router.message(Command("viberreset"), F.from_user.id.in_(ADMIN_IDS))
+async def viber_reset(msg: Message, rides_db: RidesDB):
+    """/viberreset — удалить объявления из Viber (после неверной загрузки истории)."""
+    n = await rides_db.reset_viber()
+    await msg.answer(f"Удалено объявлений из Viber: {n}. Теперь нажмите «Загрузить историю» в приложении.")
+
+
 @router.message(Command("ingestlog"), F.from_user.id.in_(ADMIN_IDS))
 async def ingest_log(msg: Message):
     """/ingestlog — последние уведомления, пришедшие с телефона (Viber), и что с ними сделал бот."""
