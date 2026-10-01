@@ -91,7 +91,7 @@ def main_menu(role: str, active: bool) -> InlineKeyboardMarkup:
 def region_kinds() -> InlineKeyboardMarkup:
     """Старые фильтры «целым регионом» — на отдельном экране, основной путь: откуда → куда."""
     return kb([
-        [("🔴 Все заявки ПМР", "r:add:pmr"), ("🇲🇩 Вся Молдова", "r:add:md")],
+        [("🔴 Все заявки ПМР", "r:add:pmr"), ("🇲🇩 По Молдове (без ПМР)", "r:add:md")],
         [("🇺🇦 Украина", "r:add:ua"), ("🇪🇺 Европа", "r:add:eu")],
         [("🌍 Вообще все", "r:add:all")],
         [("« Назад", "r:add")],

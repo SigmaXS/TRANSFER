@@ -43,7 +43,7 @@ def run():
     # Фильтры
     p = parse_message("Ищу машину из Тирасполя в Кишинёв завтра")
     assert matches(Filter("pmr"), p)
-    assert matches(Filter("md"), p)
+    assert not matches(Filter("md"), p)  # Тирасполь → Кишинёв — это ПМР → Молдова
     assert matches(Filter("route", "Тирасполь", "Кишинёв"), p)
     assert not matches(Filter("route", "Кишинёв", "Тирасполь", both_ways=False), p)
     assert matches(Filter("route", "Кишинёв", "Тирасполь", both_ways=True), p)
@@ -55,7 +55,7 @@ def run():
     assert not matches(Filter("md"), r)
     assert matches(Filter("pmr"), r)
     u = parse_message("Кто едет из Кишинёва в Одессу завтра?")
-    assert matches(Filter("ua"), u) and matches(Filter("md"), u) and not matches(Filter("eu"), u)
+    assert matches(Filter("ua"), u) and not matches(Filter("md"), u) and not matches(Filter("eu"), u)
     e = parse_message("Caut loc Chișinău - Italia, plec luni")
     assert e.to_place == "Италия" and matches(Filter("eu"), e) and not matches(Filter("pmr"), e)
     # Строгий маршрут: Кишинёв → Тирасполь не ловит Рыбницу и заявки без второго города
@@ -77,6 +77,9 @@ def run():
     assert direction_label("Тирасполь", "Одесса") == "ПМР → Украина"
     assert direction_label(None, "Тирасполь") == "в ПМР"
     assert Filter("route", "Кишинёв", "Бельцы").title() == "🛣 Кишинёв ⇄ Бельцы (по Молдове)"
+    assert not matches(Filter("md"), parse_message("Сегодня после 17.00 еду из Кишинева в Рыбницу, есть места"))
+    assert not matches(Filter("md"), parse_message("Ищу машину Кишинёв - Тирасполь"))
+    assert matches(Filter("md"), parse_message("Ищу машину Кишинёв - Комрат"))
     print("Фильтры: OK")
     print(f"\nИтого: {len(CASES) - failed}/{len(CASES)} сообщений разобрано верно")
     return failed

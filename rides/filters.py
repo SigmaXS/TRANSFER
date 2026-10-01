@@ -27,7 +27,7 @@ class Filter:
         if self.kind == ALL:
             return "🌍 Все"
         if self.kind == MOLDOVA:
-            return "🇲🇩 Вся Молдова"
+            return "🇲🇩 По Молдове (без ПМР)"
         if self.kind == PMR_ONLY:
             return "🔴 Все заявки ПМР"
         if self.kind == UKRAINE:
@@ -98,7 +98,8 @@ def matches(f: Filter, p: Parsed) -> bool:
     if f.kind == ALL:
         return True
     if f.kind == MOLDOVA:
-        return MD in p.regions
+        # Только поездки внутри Молдовы: Кишинёв → Рыбница — это уже «Молдова → ПМР»
+        return p.regions == {MD}
     if f.kind == PMR_ONLY:
         return PMR in p.regions
     if f.kind == UKRAINE:
