@@ -18,7 +18,7 @@ from .db import RidesDB
 from .filters import ROUTE, Filter, matches
 from .parsing import DRIVER, PASSENGER
 from .places import PLACES, POPULAR, resolve_place
-from .posts import post_to_parsed
+from .posts import post_to_parsed, viber_group_link
 from .timeparse import TZ, trip_label
 
 _PHONE_RE = re.compile(r"(?:\+?373[\s-]?|\b0)\d{2}[\s-]?\d{2,3}[\s-]?\d{2,3}|\b77\d{5,6}\b|\b[56]\d{6}\b")
@@ -64,6 +64,10 @@ def _item(p: dict) -> dict:
         "author": p.get("author_name"),
         "source": p.get("chat") or ("Бот" if p.get("source") == "bot" else "сайт"),
         "link": p.get("link"),
+        # Куда перейти, если нет телефона: сообщение в Telegram-группе, Viber-группа или сайт
+        "group_link": p.get("link") or viber_group_link(p.get("chat")),
+        "group_kind": ("site" if site else "telegram") if p.get("link")
+        else ("viber" if viber_group_link(p.get("chat")) else None),
         "is_carrier": bool(p.get("is_ad")),
     }
 
