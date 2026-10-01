@@ -96,12 +96,21 @@ def format_post(post: dict, show_age: bool = False, stale: bool = False) -> str:
     return "\n".join(lines)
 
 
+# Ссылки-приглашения на Viber-группы (переменная VIBER_LINKS их дополняет и может заменить)
+DEFAULT_VIBER_LINKS = (
+    "попутчики_md=https://invite.viber.com/?g2=AQAddZlZqfMn6UtoTnbl8Jiyzjuauyh24NDt2AL2J1KWyInQ1W2Q6Fy7LmOwSaRD;"
+    "попутчики молдова/пмр/украина=https://invite.viber.com/?g2=AQAdXFw5qIdlWVVxIKLgXqduOCLVnxadv2mY6KsvpRIN9cI71BL%2FQX98zz6jWqPe;"
+    "попутчики приднестровье=https://invite.viber.com/?g2=AQAgskorzbm6GUgo163BS1pKlEpt3JANwRoUqGLrzzm7oh1erJxje%2BEFO7F29VPF"
+)
+
+
 def viber_links() -> list[tuple[str, str]]:
     """VIBER_LINKS: «название группы=ссылка-приглашение», через ; или с новой строки.
     Например: попутчики_md=https://invite.viber.com/?g2=AQB...; попутчики приднестровье=https://..."""
     from .ingest import _norm  # здесь, чтобы не было циклического импорта
     out = []
-    for item in re.split(r"[;\n]+", os.environ.get("VIBER_LINKS", "")):
+    raw = os.environ.get("VIBER_LINKS", "") + ";" + DEFAULT_VIBER_LINKS  # свои ссылки — в приоритете
+    for item in re.split(r"[;\n]+", raw):
         name, sep, url = item.partition("=")
         if sep and _norm(name) and url.strip().startswith("http"):
             out.append((_norm(name), url.strip()))
