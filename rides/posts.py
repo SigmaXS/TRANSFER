@@ -1,6 +1,8 @@
 """Объявление = заявка пассажира или свободная машина: сборка, карточка, кнопки."""
 import hashlib
 import html
+import os
+import re
 import time
 from datetime import datetime
 
@@ -94,6 +96,29 @@ def format_post(post: dict, show_age: bool = False, stale: bool = False) -> str:
     return "\n".join(lines)
 
 
+def viber_links() -> list[tuple[str, str]]:
+    """VIBER_LINKS: «название группы=ссылка-приглашение», через ; или с новой строки.
+    Например: попутчики_md=https://invite.viber.com/?g2=AQB...; попутчики приднестровье=https://..."""
+    from .ingest import _norm  # здесь, чтобы не было циклического импорта
+    out = []
+    for item in re.split(r"[;\n]+", os.environ.get("VIBER_LINKS", "")):
+        name, sep, url = item.partition("=")
+        if sep and _norm(name) and url.strip().startswith("http"):
+            out.append((_norm(name), url.strip()))
+    return out
+
+
+def viber_group_link(chat: str | None) -> str | None:
+    """Ссылка на Viber-группу заявки (на само сообщение в Viber ссылок не бывает)."""
+    if not chat or not chat.startswith("Viber ·"):
+        return None
+    from .ingest import _norm
+    group = _norm(chat.split("·", 1)[1])
+    if not group:
+        return None
+    return next((url for name, url in viber_links() if name in group or group in name), None)
+
+
 def post_keyboard(post: dict) -> InlineKeyboardMarkup | None:
     row = []
     if post.get("author_username"):
@@ -101,4 +126,6 @@ def post_keyboard(post: dict) -> InlineKeyboardMarkup | None:
     if post.get("link"):
         label = "🌐 Объявление на сайте" if post.get("source") == "site" else "🔗 В группе"
         row.append(InlineKeyboardButton(text=label, url=post["link"]))
+    elif viber := viber_group_link(post.get("chat")):
+        row.append(InlineKeyboardButton(text="🔗 Группа в Viber", url=viber))
     return InlineKeyboardMarkup(inline_keyboard=[row]) if row else None
