@@ -18,7 +18,7 @@ from aiogram.types import (CallbackQuery, InlineKeyboardButton as Btn, InlineKey
 from .db import DRIVER_ROLE, PASSENGER_ROLE, RidesDB, want_for
 from .filters import ALL, EUROPE, MOLDOVA, NEARBY_KM, PMR_ONLY, ROUTE, UKRAINE, Filter, matches
 from .parsing import DRIVER, PASSENGER, parse_message
-from .places import POPULAR, direction_label, resolve_place
+from .places import POPULAR, direction_label, place_code, place_from_code, resolve_place
 from .posts import format_post, post_from_bot, post_keyboard, post_to_parsed
 from .timeparse import TZ, trip_label
 
@@ -28,11 +28,17 @@ TRIAL_DAYS = int(os.environ.get("RIDES_TRIAL_DAYS", "7"))
 PAYMENT_TEXT = os.environ.get("RIDES_PAYMENT_TEXT", "Для продления доступа напишите администратору.")
 ADMIN_IDS = {int(x) for x in os.environ.get("ADMIN_CHAT_ID", "1657186014").replace(" ", "").split(",") if x}
 FEED_PAGE = 5
+MIN_RESULTS = 5   # пассажиру показываем не меньше стольких машин: если актуальных мало — добавляем прошедшие
 MAX_ACTIVE_POSTS = 5
 TITLE = "🚕 <b>Попутчики · Молдова · ПМР · UA · EU</b>"
 
 
 class RouteForm(StatesGroup):   # фильтр-маршрут
+    from_place = State()
+    to_place = State()
+
+
+class CarsForm(StatesGroup):    # пассажир: поиск свободных машин по маршруту
     from_place = State()
     to_place = State()
 
@@ -67,7 +73,7 @@ def main_menu(role: str, active: bool) -> InlineKeyboardMarkup:
     pause = ("⏸ Пауза" if active else "▶️ Включить", "r:toggle")
     if role == PASSENGER_ROLE:
         return kb([
-            [("🔎 Свободные машины сейчас", "r:feed:0")],
+            [("🔎 Свободные машины сейчас", "r:cars")],
             [("📢 Хочу поехать — разместить заявку", "r:post")],
             [("➕ Фильтр уведомлений", "r:add"), ("📋 Мои фильтры", "r:list")],
             [("🗂 Мои заявки", "r:my"), ("ℹ️ Помощь", "r:help")],
@@ -403,6 +409,160 @@ async def feed(cb: CallbackQuery, rides_db: RidesDB):
         "Сначала ближайшие по времени, прошедшие скрыты.", reply_markup=kb([nav]))
 
 
+# ---------------- пассажир: свободные машины по маршруту ----------------
+
+@router.callback_query(F.data == "r:cars")
+async def cars_start(cb: CallbackQuery, state: FSMContext, rides_db: RidesDB):
+    """Шаг 1: откуда. Сверху — сохранённые маршруты пассажира, чтобы не выбирать заново."""
+    await state.clear()
+    await state.set_state(CarsForm.from_place)
+    u, _ = await rides_db.ensure_user(cb.from_user.id, cb.from_user.username, TRIAL_DAYS)
+    saved = [f for f in await rides_db.get_filters(cb.from_user.id, want_for(u.role))
+             if f.kind == ROUTE and not (f.from_place or "").startswith("@")
+             and not (f.to_place or "").startswith("@") and (f.from_place or f.to_place)]
+    rows = [[Btn(text=f"⭐ {f.from_place or 'Любой'} → {f.to_place or 'куда угодно'}",
+                 callback_data=f"r:cf:{place_code(f.from_place)}:{place_code(f.to_place)}:0")]
+            for f in saved[:4]]
+    rows += places_kb("r:cfrom", allow_any=False).inline_keyboard[:-1]
+    rows.append([Btn(text="🌍 Все свободные машины", callback_data="r:cf:-:-:0")])
+    rows.append([Btn(text="« Меню", callback_data="r:home")])
+    await answer_or_edit(cb.message, "🔎 <b>Свободные машины</b>\n\n📍 <b>Откуда едете?</b>\n"
+                         "Выберите или напишите город/село.", InlineKeyboardMarkup(inline_keyboard=rows),
+                         edit=True)
+    await cb.answer()
+
+
+async def _cars_ask_to(target: Message, state: FSMContext, place: str, edit: bool):
+    await state.update_data(from_place=place)
+    await state.set_state(CarsForm.to_place)
+    rows = places_kb("r:cto", allow_any=False).inline_keyboard[:-1]
+    rows.append([Btn(text="➡️ Куда угодно", callback_data=f"r:cf:{place_code(place)}:-:0")])
+    rows.append([Btn(text="« Меню", callback_data="r:home")])
+    await answer_or_edit(target, f"Откуда: <b>{place}</b>\n\n🏁 <b>Куда?</b>",
+                         InlineKeyboardMarkup(inline_keyboard=rows), edit)
+
+
+@router.callback_query(CarsForm.from_place, F.data.startswith("r:cfrom:"))
+async def cars_from_btn(cb: CallbackQuery, state: FSMContext):
+    await _cars_ask_to(cb.message, state, POPULAR[int(cb.data.rsplit(":", 1)[1])], edit=True)
+    await cb.answer()
+
+
+@router.message(CarsForm.from_place, F.text)
+async def cars_from_text(msg: Message, state: FSMContext):
+    place = resolve_place(msg.text)
+    if not place:
+        await msg.answer("Не нашёл такой населённый пункт 🤔 Попробуйте иначе или выберите кнопкой.")
+        return
+    await _cars_ask_to(msg, state, place, edit=False)
+
+
+async def _cars_to(target: Message, state: FSMContext, rides_db: RidesDB, user, place: str):
+    frm = (await state.get_data()).get("from_place")
+    if place == frm:
+        await target.answer("Откуда и куда совпадают — выберите другой пункт.")
+        return
+    await state.clear()
+    await show_cars(target, rides_db, user.id, frm, place, 0)
+
+
+@router.callback_query(CarsForm.to_place, F.data.startswith("r:cto:"))
+async def cars_to_btn(cb: CallbackQuery, state: FSMContext, rides_db: RidesDB):
+    await cb.answer()
+    await _cars_to(cb.message, state, rides_db, cb.from_user, POPULAR[int(cb.data.rsplit(":", 1)[1])])
+
+
+@router.message(CarsForm.to_place, F.text)
+async def cars_to_text(msg: Message, state: FSMContext, rides_db: RidesDB):
+    place = resolve_place(msg.text)
+    if not place:
+        await msg.answer("Не нашёл такой населённый пункт 🤔 Попробуйте иначе или выберите кнопкой.")
+        return
+    await _cars_to(msg, state, rides_db, msg.from_user, place)
+
+
+@router.callback_query(F.data.startswith("r:cf:"))
+async def cars_page(cb: CallbackQuery, state: FSMContext, rides_db: RidesDB):
+    await state.clear()
+    await cb.answer()
+    _, _, fc, tc, offset = cb.data.split(":")
+    await show_cars(cb.message, rides_db, cb.from_user.id, place_from_code(fc), place_from_code(tc),
+                    int(offset))
+
+
+async def find_cars(rides_db: RidesDB, user_id: int, frm: str | None, to: str | None):
+    """(актуальные, прошедшие) свободные машины по маршруту. Прошедшие добавляем, только чтобы
+    всего было не меньше MIN_RESULTS: «этот водитель ездил тут вчера — позвоните»."""
+    f = Filter(ROUTE, frm, to, both_ways=False)
+
+    def ok(p):
+        return p.get("author_id") != user_id and matches(f, post_to_parsed(p))
+    live = [p for p in await rides_db.live_posts(DRIVER) if ok(p)]
+    old = []
+    if len(live) < MIN_RESULTS:
+        seen = {p["text"] or p["id"] for p in live}
+        for p in await rides_db.recent_posts(DRIVER):
+            key = p["text"] or p["id"]  # один и тот же водитель каждый день пишет одно и то же
+            if key in seen or not ok(p):
+                continue
+            seen.add(key)
+            old.append(p)
+            if len(live) + len(old) >= MIN_RESULTS:
+                break
+    return live, old
+
+
+async def show_cars(target: Message, rides_db: RidesDB, user_id: int, frm: str | None, to: str | None,
+                    offset: int):
+    live, old = await find_cars(rides_db, user_id, frm, to)
+    route = (f"{frm or 'откуда угодно'} → {to or 'куда угодно'}" if (frm or to) else "все направления")
+    direction = direction_label(frm, to) if (frm or to) else None
+    head = f"🔎 <b>Свободные машины · {html.escape(route)}</b>" + (f" ({direction})" if direction else "")
+    fc, tc = place_code(frm), place_code(to)
+    menu_row = [("🔁 Другой маршрут", "r:cars"), ("« Меню", "r:home")]
+    sub_row = [("🔔 Присылать новые машины по этому маршруту", f"r:csub:{fc}:{tc}")] if (frm or to) else None
+    if not live and not old:
+        rows = ([sub_row] if sub_row else []) + [[("📢 Хочу поехать — разместить заявку", "r:post")], menu_row]
+        await target.answer(f"{head}\n\nПока никого нет 🤷\nРазместите заявку «📢 Хочу поехать» — "
+                            "водители увидят её сразу. Или включите уведомления, пришлю, как появится.",
+                            parse_mode="HTML", reply_markup=kb(rows))
+        return
+    items = [(p, False) for p in live] + [(p, True) for p in old]
+    page = items[offset:offset + FEED_PAGE]
+    if offset == 0:
+        await target.answer(head, parse_mode="HTML")
+    for p, stale in page:
+        await target.answer(format_post(p, show_age=True, stale=stale), reply_markup=post_keyboard(p),
+                            parse_mode="HTML", disable_web_page_preview=True)
+    shown = offset + len(page)
+    summary = f"Актуальных: {len(live)}"
+    if old:
+        summary += f" · прошедших (водители этого маршрута): {len(old)}"
+    rows = []
+    if shown < len(items):
+        rows.append([(f"Ещё ({len(items) - shown}) →", f"r:cf:{fc}:{tc}:{shown}")])
+    if sub_row:
+        rows.append(sub_row)
+    rows.append(menu_row)
+    await target.answer(f"Показано {shown} из {len(items)}. {summary}.", reply_markup=kb(rows))
+
+
+@router.callback_query(F.data.startswith("r:csub:"))
+async def cars_subscribe(cb: CallbackQuery, rides_db: RidesDB):
+    _, _, fc, tc = cb.data.split(":")
+    frm, to = place_from_code(fc), place_from_code(tc)
+    u, _ = await rides_db.ensure_user(cb.from_user.id, cb.from_user.username, TRIAL_DAYS)
+    want = want_for(u.role)
+    if any(f.kind == ROUTE and (f.from_place, f.to_place) == (frm, to)
+           for f in await rides_db.get_filters(cb.from_user.id, want)):
+        await cb.answer("Такой фильтр уже есть 👍")
+        return
+    await rides_db.add_filter(cb.from_user.id, Filter(ROUTE, frm, to, both_ways=False), want)
+    if not u.active:
+        await rides_db.set_active(cb.from_user.id, True)
+    await cb.answer("🔔 Готово — пришлю новые машины по этому маршруту", show_alert=True)
+
+
 # ---------------- своё объявление ----------------
 
 @router.callback_query(F.data == "r:post")
@@ -601,7 +761,9 @@ async def post_publish(cb: CallbackQuery, state: FSMContext, rides_db: RidesDB, 
         cb.message,
         f"✅ <b>Опубликовано</b>\n📍 {post['from_place']} → {post['to_place']}\n"
         f"Отправлено {who}: {sent}. В ленте до {until}.{auto}",
-        kb([[("🔎 Смотреть " + ("машины" if post["kind"] == PASSENGER else "заявки"), "r:feed:0")],
+        kb([[("🔎 Смотреть " + ("машины" if post["kind"] == PASSENGER else "заявки"),
+              f"r:cf:{place_code(post['from_place'])}:{place_code(post['to_place'])}:0"
+              if post["kind"] == PASSENGER else "r:feed:0")],
             [("🗂 Мои объявления", "r:my"), ("« Меню", "r:home")]]), edit=True)
 
 

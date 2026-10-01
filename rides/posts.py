@@ -50,7 +50,7 @@ def post_to_parsed(post: dict) -> Parsed:
                   is_ad=bool(post.get("is_ad")))
 
 
-def format_post(post: dict, show_age: bool = False) -> str:
+def format_post(post: dict, show_age: bool = False, stale: bool = False) -> str:
     kind = post["kind"]
     if kind == PASSENGER:
         head = "🙋 <b>Ищут машину</b>"
@@ -62,6 +62,9 @@ def format_post(post: dict, show_age: bool = False) -> str:
     else:
         route = f"{frm or '?'} → {to or '?'}" if (frm or to) else ", ".join(post.get("places") or [])
     lines = [head, f"📍 <b>{html.escape(route)}</b>"]
+    if stale:
+        lines.insert(0, f"🕓 <i>Прошедшее объявление ({ago(post['ts'])}) — водитель ездит по этому "
+                        "маршруту, свяжитесь и уточните, когда он едет снова.</i>")
     if post.get("source") == "site":
         lines.append(f"🕐 по звонку · объявление обновлено {ago(post['ts'])}")
     else:

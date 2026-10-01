@@ -1,4 +1,5 @@
 """PostgreSQL: пользователи (водители и пассажиры), фильтры, заявки, антидубли, статистика."""
+import os
 import time
 from dataclasses import dataclass
 
@@ -7,6 +8,9 @@ import asyncpg
 from .filters import Filter
 
 DAY = 86400
+# Сколько дней хранить прошедшие объявления: пассажиру показываем и недавние машины по маршруту,
+# если актуальных мало («этот водитель ездил тут вчера — позвоните»)
+KEEP_DAYS = int(os.environ.get("RIDES_KEEP_DAYS", "30"))
 DRIVER_ROLE, PASSENGER_ROLE = "driver", "passenger"
 
 SCHEMA = """
@@ -229,8 +233,17 @@ class RidesDB:
         await self.pool.execute("UPDATE ride_posts SET active=FALSE WHERE id=$1 AND author_id=$2",
                                 post_id, user_id)
 
+    async def recent_posts(self, kind: str, days: int = KEEP_DAYS, limit: int = 1000) -> list[dict]:
+        """Уже прошедшие объявления за последние дни: сначала самые свежие."""
+        now = time.time()
+        rows = await self.pool.fetch(
+            "SELECT * FROM ride_posts WHERE active AND kind=$1 AND expires_at <= $2 AND ts > $3"
+            " ORDER BY ts DESC LIMIT $4", kind, now, now - days * DAY, limit)
+        return [dict(r) for r in rows]
+
     async def cleanup(self):
-        await self.pool.execute("DELETE FROM ride_posts WHERE expires_at < $1", time.time() - DAY)
+        await self.pool.execute("DELETE FROM ride_posts WHERE expires_at < $1",
+                                time.time() - max(KEEP_DAYS, 1) * DAY)
 
     async def reset_viber(self) -> int:
         """Удалить все объявления из Viber (например, после неверно загруженной истории)

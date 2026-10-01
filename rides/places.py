@@ -195,6 +195,18 @@ def resolve_place(text: str) -> str | None:
     return found[0][2] if found else None
 
 
+# Номер места для callback-кнопок (длина callback_data в Telegram ограничена 64 байтами)
+PLACE_NAMES = list(PLACES)
+
+
+def place_code(name: str | None) -> str:
+    return str(PLACE_NAMES.index(name)) if name in PLACES else "-"
+
+
+def place_from_code(code: str) -> str | None:
+    return PLACE_NAMES[int(code)] if code.isdigit() and int(code) < len(PLACE_NAMES) else None
+
+
 # Популярные точки для кнопок в боте
 POPULAR = [
     "Кишинёв", "Тирасполь", "Бендеры", "Бельцы", "Рыбница", "Дубоссары",
