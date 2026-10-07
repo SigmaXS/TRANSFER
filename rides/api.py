@@ -15,9 +15,9 @@ import time
 from aiohttp import web
 
 from .db import RidesDB
-from .filters import ROUTE, Filter, matches
+from .filters import ROUTE, Filter, matches, rank
 from .parsing import DRIVER, PASSENGER
-from .places import PLACES, POPULAR, resolve_place
+from .places import PLACES, POPULAR, RO_NAMES, resolve_place
 from .posts import post_to_parsed, viber_group_link
 from .timeparse import TZ, trip_label
 
@@ -80,7 +80,8 @@ def make_api(app: web.Application, db: RidesDB) -> None:
 
     async def places(request: web.Request):
         check(request)
-        return web.json_response({"popular": POPULAR, "all": sorted(PLACES)})
+        return web.json_response({"popular": POPULAR, "all": sorted(PLACES),
+                                  "ro": {k: v for k, v in RO_NAMES.items() if k in PLACES}})
 
     async def rides(request: web.Request):
         check(request)
@@ -89,6 +90,11 @@ def make_api(app: web.Application, db: RidesDB) -> None:
         frm, to = _spec(q.get("from")), _spec(q.get("to"))
         f = Filter(ROUTE, frm, to, both_ways=q.get("both", "1") == "1") if (frm or to) else None
         posts = [p for p in await db.live_posts(kind) if f is None or matches(f, post_to_parsed(p))]
+        if f is not None:
+            # Сначала ровно то, что ищут, потом всё остальное: «Кишинёв → Бендеры» выше
+            # «Кишинёв → Тирасполь», а обратное направление и перевозчики — в конце.
+            # sorted устойчив: внутри группы остаётся прежний порядок (по времени поездки).
+            posts = sorted(posts, key=lambda p: rank(f, post_to_parsed(p)))
         try:
             offset = max(0, int(q.get("offset", 0)))
             limit = min(50, max(1, int(q.get("limit", 20))))

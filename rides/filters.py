@@ -92,6 +92,21 @@ def _carrier_ok(f: Filter, p: Parsed) -> bool:
     return bool((f.from_place or f.to_place) and any_hit(f.from_place) and any_hit(f.to_place))
 
 
+def rank(f: Filter, p: Parsed) -> int:
+    """Насколько заявка совпадает с поиском (меньше — выше в ленте):
+    0 — тот же маршрут теми же городами, 1 — туда же, но соседние города,
+    2 — обратно теми же городами, 3 — обратно соседними, 4 — перевозчики и прочее."""
+    def exact(spec, place):
+        return spec is None or spec == place or (spec in REGION_SPECS and region_of(place) == REGION_SPECS[spec])
+    if f.kind != ROUTE or p.is_ad:
+        return 4
+    if _route_ok(f.from_place, f.to_place, p):
+        return 0 if exact(f.from_place, p.from_place) and exact(f.to_place, p.to_place) else 1
+    if f.both_ways and _route_ok(f.to_place, f.from_place, p):
+        return 2 if exact(f.to_place, p.from_place) and exact(f.from_place, p.to_place) else 3
+    return 4
+
+
 def matches(f: Filter, p: Parsed) -> bool:
     if not p.places:
         return False
