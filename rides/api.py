@@ -94,7 +94,13 @@ def make_api(app: web.Application, db: RidesDB) -> None:
             # Сначала ровно то, что ищут, потом всё остальное: «Кишинёв → Бендеры» выше
             # «Кишинёв → Тирасполь», а обратное направление и перевозчики — в конце.
             # sorted устойчив: внутри группы остаётся прежний порядок (по времени поездки).
-            posts = sorted(posts, key=lambda p: rank(f, post_to_parsed(p)))
+            ranked = [(rank(f, post_to_parsed(p)), p) for p in posts]
+            # Заданы и «откуда», и «куда» — обратное направление обычных заявок не показываем:
+            # ищут «Бендеры → Кишинёв», а «Кишинёв → Тирасполь» им не нужен. Перевозчики и
+            # объявления «в обе стороны» (rank 4) остаются, но в конце списка.
+            if f.from_place and f.to_place:
+                ranked = [(r, p) for r, p in ranked if r not in (2, 3)]
+            posts = [p for _, p in sorted(ranked, key=lambda x: x[0])]
         try:
             offset = max(0, int(q.get("offset", 0)))
             limit = min(50, max(1, int(q.get("limit", 20))))
