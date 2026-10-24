@@ -244,6 +244,11 @@ class RidesDB:
     async def cleanup(self):
         await self.pool.execute("DELETE FROM ride_posts WHERE expires_at < $1",
                                 time.time() - max(KEEP_DAYS, 1) * DAY)
+        # Старые сообщения из истории групп: дата поездки за неделю до сообщения («Еду сегодня 02.03»,
+        # прочитанное в октябре) или через 3+ месяца после (раньше «02.03» в октябре считали мартом
+        # следующего года) — не актуальны, удаляем.
+        await self.pool.execute("DELETE FROM ride_posts WHERE trip_at < ts - $1 OR trip_at > ts + $2",
+                                7 * DAY, 90 * DAY)
 
     async def reset_viber(self) -> int:
         """Удалить все объявления из Viber (например, после неверно загруженной истории)

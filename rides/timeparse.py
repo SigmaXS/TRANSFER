@@ -13,6 +13,12 @@ def _end_of_day(d: date) -> datetime:
     return datetime.combine(d, dtime(23, 59), TZ)
 
 
+def _gone(d: date) -> tuple[float, float, bool]:
+    """Поездка в прошлом: заявка уже не актуальна (в ленту не попадёт, удалится при чистке)."""
+    t = datetime.combine(d, dtime(0, 0), TZ).timestamp()
+    return t, t, False
+
+
 def trip_window(when: str | None, date_str: str | None, time_str: str | None,
                 posted: datetime) -> tuple[float, float, bool]:
     """(время поездки, до какого момента показывать, известно ли точное время) — в unix-секундах.
@@ -26,8 +32,18 @@ def trip_window(when: str | None, date_str: str | None, time_str: str | None,
         try:
             d, m = (int(x) for x in date_str.split("."))
             cand = date(posted.year, m, d)
-            if cand < posted.date() - timedelta(days=7):  # «05.01», написанное в декабре
-                cand = date(posted.year + 1, m, d)
+            if cand < posted.date() - timedelta(days=7):
+                nxt = date(posted.year + 1, m, d)
+                # «05.01», написанное в декабре, — это январь. А «02.03» в октябре — не март следующего года,
+                # а старое сообщение из истории группы: оно уже прошло.
+                if nxt - posted.date() <= timedelta(days=60):
+                    cand = nxt
+                else:
+                    return _gone(cand)
+            # «Еду сегодня 02.03», а сегодня 24.10 — сообщение старое (из истории), поездка была тогда.
+            offset = {"сегодня": 0, "завтра": 1, "послезавтра": 2}.get(when or "")
+            if offset is not None and abs((cand - (posted.date() + timedelta(days=offset))).days) > 1:
+                return _gone(cand)
             day, explicit_day = cand, True
         except ValueError:
             pass
