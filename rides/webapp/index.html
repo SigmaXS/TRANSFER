@@ -233,6 +233,8 @@ a{color:inherit;text-decoration:none}
   <div class="field"><label>Комментарий (необязательно)</label><textarea id="c-comment" placeholder="Например: с багажом, детское кресло, по пути заберу"></textarea></div>
   <div class="lbl"><span>Так увидят в группах</span></div>
   <div class="preview" id="c-preview"></div>
+  <div class="acts" style="margin-bottom:12px"><button class="btn" id="c-copy">📋 Скопировать</button><button class="btn v" id="c-groups">📤 В группы</button></div>
+  <p class="note" style="margin-top:-4px">«Опубликовать» — заявку увидят в Попутчиках и получат водители. «В группы» — только разослать текст по группам.</p>
   <button class="fab" id="c-publish">📢 Опубликовать</button>
 </section>
 
@@ -564,6 +566,11 @@ function composeData() {
 }
 function updateComposePreview() { $('#c-preview').textContent = buildText(composeData()) }
 ['#c-pickup', '#c-dropoff', '#c-time', '#c-time2', '#c-rt', '#c-rt2', '#c-price', '#c-phone', '#c-comment'].forEach(id => $(id).addEventListener('input', updateComposePreview));
+$('#c-copy').onclick = () => { if (!S.c.from || !S.c.to) return toast('Укажите откуда и куда'); track('copy'); copy(buildText(composeData()), 'Текст заявки скопирован') };
+$('#c-groups').onclick = () => {
+  if (!S.c.from || !S.c.to) return toast('Укажите откуда и куда');
+  haptic(); openShare({ share: buildText(composeData()), kind: S.c.kind }, null, false);
+};
 $('#c-contacts').onclick = e => { const b = e.target.closest('[data-c]'); if (b) { haptic(); b.classList.toggle('on'); updateComposePreview() } };
 $('#c-ret').onclick = () => { haptic(); const on = !$('#c-ret .sw').classList.contains('on'); $('#c-ret .sw').classList.toggle('on', on); $('#c-ret-time').style.display = on ? 'flex' : 'none'; updateComposePreview() };
 $('#c-parcels').onclick = () => { haptic(); $('#c-parcels .sw').classList.toggle('on'); updateComposePreview() };
@@ -641,12 +648,13 @@ function shareText(it) {
   const n = it.kind === 'driver' ? (it.seats ? `${it.seats} ${plural(it.seats, 'место', 'места', 'мест')}` : '') : (it.people ? `${it.people} ${plural(it.people, 'место', 'места', 'мест')}` : '');
   return [head, `🕐 ${[w, n].filter(Boolean).join(' · ')}`, it.comment ? `💬 ${it.comment}` : '', it.phone ? `📞 ${pretty(it.phone)}` : ''].filter(Boolean).join('\n');
 }
-function openShare(it, sent) {
+function openShare(it, sent, published = true) {
   const text = it.share || (it.text && it.own !== false && /^[🚗🙋]/u.test(it.text) ? it.text : '') || shareText(it);
   const g = (S.me && S.me.groups) || { viber: [], telegram: [] };
   const who = it.kind === 'driver' ? 'пассажирам' : 'водителям';
   $('#o-share').innerHTML = `
-    <div class="hero"><b>✅ Опубликовано</b><span>${sent != null ? `Уже отправлено ${who}: ${sent}. ` : ''}Заявка в ленте Попутчиков. Отправьте её и в группы — так увидит больше людей.</span></div>
+    ${published ? `<div class="hero"><b>✅ Опубликовано</b><span>${sent != null ? `Уже отправлено ${who}: ${sent}. ` : ''}Заявка в ленте Попутчиков. Отправьте её и в группы — так увидит больше людей.</span></div>`
+                : `<div class="hero"><b>📤 Отправить в группы</b><span>Готовый текст заявки — скопируйте или отправьте сразу в несколько групп.</span></div>`}
     <div class="lbl"><span>Текст заявки</span></div>
     <div class="preview">${esc(text)}</div>
     <div class="stack">
