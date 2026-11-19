@@ -714,7 +714,7 @@ async function loadMe() { S.me = await api('me') }
 (async function init() {
   renderDays(); renderRoute();
   if (!tg || !tg.initData) {
-    $('#list').innerHTML = `<div class="empty"><b>Откройте через Telegram</b>Бот @MI_transferBot → кнопка «🚕 Открыть».</div>`;
+    $('#list').innerHTML = `<div class="empty"><b>Откройте через Telegram</b>Бот @MI_transferBot → кнопка «🚕 Попутчики».</div>`;
     return;
   }
   try {
@@ -726,6 +726,7 @@ async function loadMe() { S.me = await api('me') }
   // Открыть конкретную поездку: кнопка «🔎 Открыть» под уведомлением (?p=123) или ссылка с startapp=p123
   const pid = new URLSearchParams(location.search).get('p') || ((tg.initDataUnsafe.start_param || '').match(/^p(\d+)$/) || [])[1];
   if (pid) { try { openDetail((await api('post?id=' + pid)).item) } catch {} }
+  else if (new URLSearchParams(location.search).get('v') === 'post') openCompose(S.mode === 'driver' ? 'passenger' : 'driver');   // «📢 Хочу поехать» из бота
 })();
 </script>
 </body>

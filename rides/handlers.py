@@ -10,7 +10,9 @@ from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import (CallbackQuery, InlineKeyboardButton as Btn, InlineKeyboardMarkup, Message,
+from pathlib import Path
+
+from aiogram.types import (CallbackQuery, FSInputFile, InlineKeyboardButton as Btn, InlineKeyboardMarkup, Message,
                            ReplyKeyboardRemove, WebAppInfo)
 
 from .db import RidesDB
@@ -24,8 +26,8 @@ TRIAL_DAYS = int(os.environ.get("RIDES_TRIAL_DAYS", "7"))
 ADMIN_IDS = {int(x) for x in os.environ.get("ADMIN_CHAT_ID", "1657186014").replace(" ", "").split(",") if x}
 
 WELCOME = (
-    "🚕 <b>Попутчики · Молдова · ПМР · UA · EU</b>\n\n"
-    "Машины и пассажиры из групп попутчиков Viber и Telegram — в одном месте, без перевозчиков и рекламы.\n\n"
+    "🚕 <b>Попутчики</b> — машины и пассажиры из групп Viber и Telegram в одном месте, "
+    "без перевозчиков и рекламы. Бесплатно.\n\n"
     "🔎 Найдите поездку и позвоните водителю\n"
     "📢 Разместите «Хочу поехать» — водители увидят сразу\n"
     "🔔 Включите уведомления по своему маршруту\n\n"
@@ -42,8 +44,17 @@ def kb(rows) -> InlineKeyboardMarkup:
                                                  for row in rows])
 
 
-def app_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[Btn(text="🚕 Открыть Попутчики", web_app=WebAppInfo(url=WEBAPP_URL))]])
+BANNER = Path(__file__).with_name("webapp") / "banner.png"
+_banner_id: str | None = None     # после первой отправки Telegram отдаёт file_id — дальше шлём его
+
+
+def app_kb(styled: bool = True) -> InlineKeyboardMarkup:
+    """Главная кнопка — зелёная (style в новых Telegram), ниже — сразу в поиск и в «Хочу поехать»."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [Btn(text="🚕 ОТКРЫТЬ ПОПУТЧИКИ", web_app=WebAppInfo(url=WEBAPP_URL), style="success" if styled else None)],
+        [Btn(text="🔎 Найти машину", web_app=WebAppInfo(url=WEBAPP_URL + "?v=search")),
+         Btn(text="📢 Хочу поехать", web_app=WebAppInfo(url=WEBAPP_URL + "?v=post"))],
+    ])
 
 
 def fmt_date(ts: float) -> str:
@@ -56,7 +67,14 @@ async def welcome(msg: Message, rides_db: RidesDB, user) -> None:
         await rides_db.log_event(user.id, "start", {"new": is_new})
     except Exception:  # noqa: BLE001
         pass
-    await msg.answer(WELCOME, reply_markup=app_kb(), parse_mode="HTML")
+    global _banner_id
+    try:
+        m = await msg.answer_photo(_banner_id or FSInputFile(BANNER), caption=WELCOME, reply_markup=app_kb(),
+                                   parse_mode="HTML")
+        if m.photo:
+            _banner_id = m.photo[-1].file_id
+    except Exception:  # noqa: BLE001 — картинка или цветная кнопка не прошли: текст с обычными кнопками
+        await msg.answer(WELCOME, reply_markup=app_kb(styled=False), parse_mode="HTML")
 
 
 @router.message(CommandStart())
@@ -75,7 +93,7 @@ async def start(msg: Message, rides_db: RidesDB, state: FSMContext):
 async def mute_filter(cb: CallbackQuery, rides_db: RidesDB):
     """«🔕 Не присылать этот маршрут» под уведомлением: маршрут выключается (включить — в Mini App)."""
     await rides_db.set_filter_enabled(cb.from_user.id, int(cb.data.rsplit(":", 1)[1]), False)
-    await cb.answer("Больше не пришлю по этому маршруту. Включить снова: 🚕 Открыть → Уведомления.", show_alert=True)
+    await cb.answer("Больше не пришлю по этому маршруту. Включить снова: 🚕 Попутчики → Уведомления.", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("r:"))

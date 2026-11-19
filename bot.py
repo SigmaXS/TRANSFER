@@ -56,7 +56,7 @@ async def setup_profile(bot: Bot):
             except Exception:  # noqa: BLE001 — админ ещё не писал боту
                 pass
         # Кнопка слева от поля ввода открывает Mini App «Попутчики»
-        await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="🚕 Открыть", web_app=WebAppInfo(url=WEBAPP_URL)))
+        await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="🚕 Попутчики", web_app=WebAppInfo(url=WEBAPP_URL)))
     except Exception as e:  # noqa: BLE001 — профиль не критичен для работы
         log.warning("Не удалось обновить профиль бота: %s", e)
 
