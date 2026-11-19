@@ -24,12 +24,14 @@ TRIAL_DAYS = int(os.environ.get("RIDES_TRIAL_DAYS", "7"))
 ADMIN_IDS = {int(x) for x in os.environ.get("ADMIN_CHAT_ID", "1657186014").replace(" ", "").split(",") if x}
 
 WELCOME = (
-    "🚕 <b>Попутчики · Молдова · ПМР · UA · EU</b>\n\n"
-    "Машины и пассажиры из групп попутчиков Viber и Telegram — в одном месте, без перевозчиков и рекламы.\n\n"
-    "🔎 Найдите поездку и позвоните водителю\n"
-    "📢 Разместите «Хочу поехать» — водители увидят сразу\n"
-    "🔔 Включите уведомления по своему маршруту\n\n"
-    "Нажмите кнопку 👇"
+    "🚕🛣 <b>ПОПУТЧИКИ</b>\n"
+    "🇲🇩 Молдова · 🔴 ПМР · 🇺🇦 Украина · 🇪🇺 Европа\n\n"
+    "🚗 Машины и 🙋 пассажиры из групп попутчиков 💜 Viber и ✈️ Telegram — в одном месте.\n"
+    "🚫 Без перевозчиков и рекламы · 🎁 Бесплатно\n\n"
+    "🔎 <b>Найдите поездку</b> — и сразу 📞 позвоните водителю\n"
+    "📢 <b>Разместите «Хочу поехать»</b> — водители увидят ⚡ сразу\n"
+    "🔔 <b>Включите уведомления</b> — пришлю новые поездки по вашему маршруту\n\n"
+    "👇👇👇 <b>Нажмите зелёную кнопку</b> 👇👇👇"
 )
 
 
@@ -45,7 +47,7 @@ def kb(rows) -> InlineKeyboardMarkup:
 def app_kb(styled: bool = True) -> InlineKeyboardMarkup:
     """Одна кнопка Mini App — зелёная (style в новых Telegram), заметнее обычных."""
     return InlineKeyboardMarkup(inline_keyboard=[
-        [Btn(text="🚕 ОТКРЫТЬ ПОПУТЧИКИ 👉", web_app=WebAppInfo(url=WEBAPP_URL), style="success" if styled else None)],
+        [Btn(text="🚕🚕 ОТКРЫТЬ ПОПУТЧИКИ 🚕🚕", web_app=WebAppInfo(url=WEBAPP_URL), style="success" if styled else None)],
     ])
 
 
