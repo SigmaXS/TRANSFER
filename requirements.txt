@@ -1,4 +1,4 @@
-aiogram>=3.10,<4
+aiogram>=3.15,<4
 asyncpg
 telethon>=1.36,<2
 tzdata

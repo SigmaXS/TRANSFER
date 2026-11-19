@@ -6,12 +6,13 @@ import os
 import asyncpg
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import BotCommand, BotCommandScopeChat, MenuButtonCommands
+from aiogram.types import BotCommand, BotCommandScopeChat, MenuButtonWebApp, WebAppInfo
 
 from rides.db import RidesDB
 from rides.handlers import ADMIN_IDS, router as rides_router
 from rides.listener import Watcher, make_client
 from rides.notifier import Notifier
+from rides.posts import WEBAPP_URL
 from rides.ingest import run_server
 from rides.web import poll_sites
 
@@ -54,7 +55,8 @@ async def setup_profile(bot: Bot):
                 await bot.set_my_commands(admin_cmds, scope=BotCommandScopeChat(chat_id=admin_id))
             except Exception:  # noqa: BLE001 — админ ещё не писал боту
                 pass
-        await bot.set_chat_menu_button(menu_button=MenuButtonCommands())  # вместо старой кнопки приложения
+        # Кнопка слева от поля ввода открывает Mini App «Попутчики»
+        await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="🚕 Открыть", web_app=WebAppInfo(url=WEBAPP_URL)))
     except Exception as e:  # noqa: BLE001 — профиль не критичен для работы
         log.warning("Не удалось обновить профиль бота: %s", e)
 

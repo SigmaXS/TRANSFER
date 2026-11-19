@@ -8,6 +8,9 @@ from datetime import datetime
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+# Адрес Mini App (страница на этом же сервере Railway)
+WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://transfer-production-2342.up.railway.app/app").strip()
+
 from .parsing import DRIVER, PASSENGER, Parsed
 from .timeparse import TZ, ago, trip_label, trip_window
 

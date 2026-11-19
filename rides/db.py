@@ -36,6 +36,9 @@ CREATE TABLE IF NOT EXISTS ride_filters (
 -- want: какие объявления присылать по этому фильтру.
 -- 'passenger' — заявки пассажиров (фильтр водителя), 'driver' — свободные машины (фильтр пассажира)
 ALTER TABLE ride_filters ADD COLUMN IF NOT EXISTS want TEXT DEFAULT 'passenger';
+-- Mini App: маршрут можно выключить, не удаляя; тихие часы (23–07 без звука)
+ALTER TABLE ride_filters ADD COLUMN IF NOT EXISTS enabled BOOLEAN DEFAULT TRUE;
+ALTER TABLE ride_users ADD COLUMN IF NOT EXISTS quiet BOOLEAN DEFAULT FALSE;
 
 -- Кто пользовался ботом до появления ролей и уже настроил фильтры — водитель
 UPDATE ride_users SET role = 'driver'
@@ -159,7 +162,7 @@ class RidesDB:
         rows = await self.pool.fetch(
             """SELECT f.*, u.active, u.role, u.trial_until, u.paid_until
                  FROM ride_filters f JOIN ride_users u USING (user_id)
-                WHERE u.active AND f.want = $1
+                WHERE u.active AND f.want = $1 AND COALESCE(f.enabled, TRUE)
                   AND ($1 <> 'passenger' OR GREATEST(u.trial_until, u.paid_until) > $2)
                 ORDER BY f.id""", want, now)
         by_user: dict[int, tuple[RideUser, list[Filter]]] = {}
@@ -177,6 +180,28 @@ class RidesDB:
         rows = await self.pool.fetch(
             "SELECT * FROM ride_filters WHERE user_id=$1 AND want=$2 ORDER BY id", user_id, want)
         return [_filter(r) for r in rows]
+
+    async def filter_rows(self, user_id: int) -> list[dict]:
+        rows = await self.pool.fetch("SELECT * FROM ride_filters WHERE user_id=$1 ORDER BY id", user_id)
+        return [dict(r) for r in rows]
+
+    async def set_filter_enabled(self, user_id: int, filter_id: int, enabled: bool):
+        await self.pool.execute("UPDATE ride_filters SET enabled=$3 WHERE id=$1 AND user_id=$2",
+                                filter_id, user_id, enabled)
+
+    async def set_quiet(self, user_id: int, quiet: bool):
+        await self.pool.execute("UPDATE ride_users SET quiet=$2 WHERE user_id=$1", user_id, quiet)
+
+    async def quiet_users(self) -> set[int]:
+        return {r["user_id"] for r in await self.pool.fetch("SELECT user_id FROM ride_users WHERE quiet")}
+
+    async def user_row(self, user_id: int) -> dict | None:
+        r = await self.pool.fetchrow("SELECT * FROM ride_users WHERE user_id=$1", user_id)
+        return dict(r) if r else None
+
+    async def get_post(self, post_id: int) -> dict | None:
+        r = await self.pool.fetchrow("SELECT * FROM ride_posts WHERE id=$1", post_id)
+        return dict(r) if r else None
 
     async def delete_filter(self, user_id: int, filter_id: int):
         await self.pool.execute("DELETE FROM ride_filters WHERE id=$1 AND user_id=$2", filter_id, user_id)

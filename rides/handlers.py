@@ -13,13 +13,13 @@ from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (CallbackQuery, InlineKeyboardButton as Btn, InlineKeyboardMarkup,
-                           KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove)
+                           KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove, WebAppInfo)
 
 from .db import DRIVER_ROLE, PASSENGER_ROLE, RidesDB, want_for
 from .filters import ALL, EUROPE, MOLDOVA, NEARBY_KM, PMR_ONLY, ROUTE, UKRAINE, Filter, matches
 from .parsing import DRIVER, PASSENGER, parse_message
 from .places import POPULAR, direction_label, place_code, place_from_code, resolve_place
-from .posts import format_post, post_from_bot, post_keyboard, post_to_parsed
+from .posts import WEBAPP_URL, format_post, post_from_bot, post_keyboard, post_to_parsed
 from .timeparse import TZ, trip_label
 
 router = Router(name="rides")
@@ -149,9 +149,22 @@ async def status_text(db: RidesDB, user_id: int) -> str:
     return "\n".join(lines)
 
 
+def with_app(markup: InlineKeyboardMarkup) -> InlineKeyboardMarkup:
+    """Первой строкой — большая кнопка Mini App."""
+    app = [Btn(text="🚕 Открыть Попутчики", web_app=WebAppInfo(url=WEBAPP_URL))]
+    return InlineKeyboardMarkup(inline_keyboard=[app] + markup.inline_keyboard)
+
+
 async def show_home(target: Message, db: RidesDB, user_id: int, edit: bool = False):
     u = await db.get_user(user_id)
-    await answer_or_edit(target, await status_text(db, user_id), main_menu(u.role, u.active), edit)
+    await answer_or_edit(target, await status_text(db, user_id), with_app(main_menu(u.role, u.active)), edit)
+
+
+@router.callback_query(F.data.startswith("r:fmute:"))
+async def mute_filter(cb: CallbackQuery, rides_db: RidesDB):
+    """«🔕 Не присылать этот маршрут» под уведомлением: маршрут выключается (включить — в Mini App)."""
+    await rides_db.set_filter_enabled(cb.from_user.id, int(cb.data.rsplit(":", 1)[1]), False)
+    await cb.answer("Больше не пришлю по этому маршруту. Включить снова: 🚕 Открыть → Уведомления.", show_alert=True)
 
 
 @router.message(CommandStart())
@@ -168,7 +181,7 @@ async def start(msg: Message, rides_db: RidesDB, state: FSMContext):
     if not u.role:
         await msg.answer(
             f"{TITLE}\n\nСоединяю водителей и пассажиров: беру заявки из групп попутчиков в Telegram "
-            "и объявления прямо из бота.\n\n<b>Кто вы?</b>", reply_markup=role_kb(), parse_mode="HTML")
+            "и объявления прямо из бота.\n\n<b>Кто вы?</b>", reply_markup=with_app(role_kb()), parse_mode="HTML")
         return
     await show_home(msg, rides_db, msg.from_user.id)
 

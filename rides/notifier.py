@@ -1,15 +1,41 @@
 """Рассылка нового объявления тем, у кого подходит фильтр."""
 import asyncio
 import logging
+from datetime import datetime
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError, TelegramRetryAfter
+from aiogram.types import CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
+from .carrier import is_carrier
 from .db import RidesDB
 from .filters import matches
-from .posts import format_post, post_keyboard, post_to_parsed
+from .posts import WEBAPP_URL, format_post, post_to_parsed
+from .timeparse import TZ
 
 log = logging.getLogger("rides.notifier")
+
+
+def notify_keyboard(post: dict, filter_id: int | None) -> InlineKeyboardMarkup:
+    """📋 Номер (копирует) · 🔎 Открыть (Mini App на этой поездке) · 🔕 Не присылать этот маршрут."""
+    from .api import _phone  # здесь, чтобы не было циклического импорта
+    row = []
+    phone = _phone(post)
+    if phone:
+        row.append(InlineKeyboardButton(text="📋 Номер", copy_text=CopyTextButton(text=phone)))
+    elif post.get("author_username"):
+        row.append(InlineKeyboardButton(text="✉️ Написать", url=f"https://t.me/{post['author_username']}"))
+    if post.get("id"):
+        row.append(InlineKeyboardButton(text="🔎 Открыть", web_app=WebAppInfo(url=f"{WEBAPP_URL}?p={post['id']}")))
+    rows = [row] if row else []
+    if filter_id:
+        rows.append([InlineKeyboardButton(text="🔕 Не присылать этот маршрут", callback_data=f"r:fmute:{filter_id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def _quiet_now() -> bool:
+    h = datetime.now(TZ).hour
+    return h >= 23 or h < 7
 
 
 class Notifier:
@@ -18,19 +44,25 @@ class Notifier:
         self.db = db
 
     async def dispatch(self, post: dict) -> int:
-        """Заявку пассажира получают водители, свободную машину — пассажиры."""
+        """Заявку пассажира получают водители, свободную машину — пассажиры. Перевозчиков не рассылаем."""
+        if is_carrier(post):
+            return 0
         parsed = post_to_parsed(post)
-        text, kb = format_post(post), post_keyboard(post)
+        text = format_post(post)
+        quiet = await self.db.quiet_users() if _quiet_now() else set()
         sent = 0
         for user, filters in await self.db.recipients(want=post["kind"]):
             if user.user_id == post.get("author_id"):
                 continue
-            if not any(matches(f, parsed) for f in filters):
+            hit = next((f for f in filters if matches(f, parsed)), None)
+            if hit is None:
                 continue
+            kb = notify_keyboard(post, hit.id)
             for _attempt in range(2):
                 try:
                     await self.bot.send_message(user.user_id, text, reply_markup=kb, parse_mode="HTML",
-                                                disable_web_page_preview=True)
+                                                disable_web_page_preview=True,
+                                                disable_notification=user.user_id in quiet)
                     sent += 1
                     break
                 except TelegramRetryAfter as e:

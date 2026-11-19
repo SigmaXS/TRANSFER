@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Попутчики</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+:root{--bg:#090F1C;--sur:#121F32;--sur2:#1B3049;--line:#1E3350;--acc:#FFCC00;--onacc:#141414;--accdim:#4A3C10;--tx:#F4F4F6;--tx2:#B3C0CF;--mut:#98A8BA;--ok:#4ADE80;--okbg:#132E1F;--dan:#EF4444;--danbg:#3A1717;--sur3:#183647;--cyan:#B8EFF5;--nav:#0B1424;--navi:#8C9DB0;--navind:#3A3110;--viber:#7360F2;color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--tx);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px}
+body{overscroll-behavior:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input,textarea{font:inherit;color:var(--tx)}
+a{color:inherit;text-decoration:none}
+.view{position:fixed;inset:0;bottom:calc(64px + env(safe-area-inset-bottom,0px));overflow:auto;padding:14px 14px 24px;display:none}
+.view.on{display:block}
+.view.withfab{padding-bottom:96px}
+.over{position:fixed;inset:0;background:var(--bg);overflow:auto;padding:14px 14px 110px;display:none;z-index:20}
+.over.on{display:block}
+.hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--acc);display:grid;place-items:center;font-size:20px;flex:none}
+.hdr .t{flex:1;min-width:0}.hdr .t b{display:block;font-size:17px}.hdr .t span{font-size:12px;color:var(--mut)}
+.sq{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--sur);display:grid;place-items:center;font-size:16px;flex:none}
+.route{background:var(--sur);border:1px solid var(--line);border-radius:18px;padding:6px;position:relative}
+.rf{display:flex;align-items:center;gap:10px;padding:11px 12px;width:100%;text-align:left;padding-right:56px}
+.rf+.rf{border-top:1px solid var(--line)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.rf .l{font-size:11px;color:var(--mut)}.rf .v{font-size:15px;font-weight:600}.rf .v.ph{color:var(--mut);font-weight:500}
+.swap{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:10px;background:var(--sur2);border:1px solid var(--line);display:grid;place-items:center;font-size:16px}
+.chips{display:flex;gap:8px;margin:12px 0;overflow:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--sur);font-size:13px;white-space:nowrap;color:var(--tx2);flex:none}
+.chip.on{background:var(--acc);color:var(--onacc);border-color:var(--acc);font-weight:700}
+.seg{display:flex;background:var(--sur);border:1px solid var(--line);border-radius:14px;padding:4px;margin-bottom:12px}
+.seg button{flex:1;text-align:center;padding:9px 4px;border-radius:10px;font-size:13px;color:var(--tx2)}
+.seg .on{background:var(--sur2);color:var(--tx);font-weight:600}
+.lbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);font-weight:600;margin:16px 4px 8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.lbl button{font-style:normal;color:var(--acc);text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600}
+.card{background:var(--sur);border:1px solid var(--line);border-radius:18px;padding:13px 14px;margin-bottom:10px;display:block;width:100%;text-align:left}
+.card.stale{opacity:.78}
+.ct{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.tag{font-size:11px;font-weight:700;padding:4px 8px;border-radius:8px;white-space:nowrap}
+.tag.car{background:var(--okbg);color:var(--ok)}.tag.pas{background:var(--sur3);color:var(--cyan)}.tag.old{background:#22262e;color:var(--mut)}.tag.mine{background:var(--accdim);color:var(--acc)}
+.time{margin-left:auto;font-size:15px;font-weight:800;color:var(--acc);white-space:nowrap}
+.time.m{color:var(--mut);font-size:13px;font-weight:600}
+.rt{font-size:16px;font-weight:700;margin-bottom:4px}
+.meta{font-size:12px;color:var(--mut);display:flex;gap:4px;flex-wrap:wrap}
+.txt{font-size:13px;color:var(--tx2);margin:8px 0 10px;line-height:1.4;white-space:pre-line;overflow-wrap:anywhere}
+.acts{display:flex;gap:8px}
+.btn{flex:1;text-align:center;padding:10px 6px;border-radius:12px;font-size:13px;font-weight:700;border:1px solid var(--line);background:var(--sur2);display:block}
+.btn.y{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
+.btn.g{background:var(--okbg);color:var(--ok);border-color:#1f4a31}
+.btn.v{background:#2a2550;color:#c9c1ff;border-color:#3d3575}
+.btn.r{background:var(--danbg);color:#fca5a5;border-color:#5a2222}
+.btn.big{padding:14px;font-size:14px}
+.fab{position:fixed;left:14px;right:14px;bottom:calc(76px + env(safe-area-inset-bottom,0px));background:var(--acc);color:var(--onacc);font-weight:800;text-align:center;padding:14px;border-radius:16px;font-size:15px;box-shadow:0 8px 24px #000a;z-index:5}
+.over .fab{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+.nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--nav);border-top:1px solid var(--line);padding:8px 6px calc(10px + env(safe-area-inset-bottom,0px));z-index:10}
+.nav button{flex:1;text-align:center;font-size:11px;color:var(--navi)}
+.nav button i{display:block;font-style:normal;font-size:18px;margin:0 auto 3px;width:48px;padding:3px 0;border-radius:12px}
+.nav .on{color:var(--acc);font-weight:600}.nav .on i{background:var(--navind)}
+.grp{background:var(--sur);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.it{display:flex;align-items:center;gap:12px;padding:12px 14px;width:100%;text-align:left}
+.it+.it{border-top:1px solid var(--line)}
+.ic{width:36px;height:36px;border-radius:10px;background:var(--sur2);display:grid;place-items:center;font-size:17px;flex:none}
+.it .t{flex:1;min-width:0}.it .t b{display:block;font-size:14px;font-weight:600}.it .t span{font-size:12px;color:var(--mut)}
+.sw{width:42px;height:24px;border-radius:999px;background:var(--sur2);position:relative;flex:none;transition:background .15s}
+.sw:after{content:"";position:absolute;width:18px;height:18px;border-radius:50%;background:var(--navi);top:3px;left:3px;transition:left .15s}
+.sw.on{background:var(--acc)}.sw.on:after{left:21px;background:var(--onacc)}
+.arr{color:var(--mut);font-size:18px;flex:none}
+.ok{color:var(--ok);font-weight:700;flex:none}
+.hero{background:linear-gradient(135deg,#2a2208,#121F32 70%);border:1px solid var(--accdim);border-radius:20px;padding:16px;margin-bottom:12px}
+.hero b{font-size:17px;display:block;margin-bottom:4px}.hero span{font-size:13px;color:var(--tx2);line-height:1.45}
+.big{font-size:22px;font-weight:800;margin:8px 0 4px}
+.kv{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 14px;font-size:14px;width:100%;text-align:left}
+.kv+.kv{border-top:1px solid var(--line)}.kv span{color:var(--mut);flex:none}.kv b{text-align:right;font-weight:600}
+.kv b.lnk{color:var(--acc)}
+.phonebox{display:flex;align-items:center;justify-content:space-between;background:var(--sur2);border-radius:14px;padding:12px 14px;margin:12px 0;font-size:19px;font-weight:800;letter-spacing:.02em;width:100%;text-align:left}
+.phonebox small{font-size:12px;color:var(--mut);font-weight:500;letter-spacing:0;display:block}
+.empty{text-align:center;color:var(--mut);padding:36px 12px;line-height:1.5}
+.empty b{display:block;color:var(--tx);font-size:16px;margin-bottom:6px}
+.empty .btn{display:inline-block;margin-top:14px;padding:10px 18px;flex:none}
+.field{background:var(--sur);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-bottom:10px}
+.field label{display:block;font-size:11px;color:var(--mut);margin-bottom:4px}
+.field input,.field textarea{width:100%;background:none;border:0;outline:none;font-size:15px;font-weight:600;resize:none}
+.field textarea{font-weight:500;min-height:54px}
+.stepper{display:flex;align-items:center;gap:14px}
+.stepper button{width:36px;height:36px;border-radius:10px;background:var(--sur2);border:1px solid var(--line);font-size:18px;font-weight:700}
+.stepper b{font-size:18px;min-width:20px;text-align:center}
+.preview{background:var(--sur);border:1px dashed var(--stroke,#35516A);border-radius:16px;padding:12px 14px;white-space:pre-line;font-size:13.5px;line-height:1.5;color:var(--tx2);margin-bottom:12px}
+.stack{display:flex;flex-direction:column;gap:8px}
+.sheet{position:fixed;inset:0;background:#000a;z-index:40;display:none;align-items:flex-end}
+.sheet.on{display:flex}
+.sheet .box{background:var(--bg);border-top:1px solid var(--line);border-radius:22px 22px 0 0;width:100%;max-height:86vh;display:flex;flex-direction:column;padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px))}
+.sheet .grab{width:40px;height:4px;border-radius:4px;background:var(--line);margin:0 auto 12px}
+.sheet .list{overflow:auto;margin-top:8px;border-radius:16px}
+.toast{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#1d2633;border:1px solid #2b3647;padding:10px 16px;border-radius:12px;font-size:13px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.toast.on{opacity:1}
+.lock{text-align:center;padding:24px 16px}
+.skel{height:120px;border-radius:18px;background:linear-gradient(90deg,var(--sur),var(--sur2),var(--sur));background-size:200% 100%;animation:sk 1.2s infinite;margin-bottom:10px}
+@keyframes sk{to{background-position:-200% 0}}
+.note{font-size:12px;color:var(--mut);margin:8px 4px 0;line-height:1.45}
+</style>
+</head>
+<body>
+
+<!-- ============ ПОИСК ============ -->
+<section class="view withfab on" id="v-search">
+  <div class="hdr"><div class="logo">🚕</div><div class="t"><b>Попутчики</b><span>Молдова · ПМР · UA · EU</span></div><button class="sq" data-tab="notify">🔔</button></div>
+  <div class="seg" id="seg-mode"><button data-mode="driver" class="on">🚗 Ищу машину</button><button data-mode="passenger">🙋 Ищу пассажиров</button></div>
+  <div class="route">
+    <button class="rf" data-pick="from"><span class="dot" style="background:var(--ok)"></span><div><div class="l">Откуда</div><div class="v" id="s-from"></div></div></button>
+    <button class="rf" data-pick="to"><span class="dot" style="background:var(--dan)"></span><div><div class="l">Куда</div><div class="v" id="s-to"></div></div></button>
+    <button class="swap" id="swap">⇅</button>
+  </div>
+  <div class="chips" id="days"></div>
+  <div class="lbl"><span id="found">Ищу…</span><button id="save-route">⭐ Сохранить маршрут</button></div>
+  <div id="list"></div>
+</section>
+<button class="fab" id="fab">📢 Разместить: «Хочу поехать»</button>
+
+<!-- ============ МОИ ============ -->
+<section class="view" id="v-my">
+  <div class="hdr"><div class="t"><b>Мои объявления</b><span>Активные заявки и свободные машины</span></div></div>
+  <div id="my-list"></div>
+</section>
+
+<!-- ============ УВЕДОМЛЕНИЯ ============ -->
+<section class="view" id="v-notify">
+  <div class="hdr"><div class="t"><b>Уведомления</b><span>Пришлю в чат бота, как только появится</span></div></div>
+  <div class="grp"><button class="it" id="n-active"><div class="ic" style="background:var(--accdim)">🔔</div><div class="t"><b>Уведомления включены</b><span id="n-active-sub">Новые поездки по вашим маршрутам</span></div><div class="sw on"></div></button></div>
+  <div class="lbl"><span>Мои маршруты</span><button id="n-add">＋ Добавить</button></div>
+  <div class="grp" id="n-routes"></div>
+  <div class="lbl"><span>Как присылать</span></div>
+  <div class="grp">
+    <div class="it"><div class="ic">⚡</div><div class="t"><b>Сразу</b><span>каждая новая поездка</span></div><span class="ok">✓</span></div>
+    <button class="it" id="n-quiet"><div class="ic">🌙</div><div class="t"><b>Тихие часы</b><span>23:00 – 07:00 без звука</span></div><div class="sw"></div></button>
+    <div class="it"><div class="ic">🚫</div><div class="t"><b>Без перевозчиков</b><span>только частные водители и пассажиры</span></div><span class="ok">✓</span></div>
+  </div>
+</section>
+
+<!-- ============ ПРОФИЛЬ ============ -->
+<section class="view" id="v-profile">
+  <div class="hdr"><div class="logo">🚕</div><div class="t"><b id="p-name">Профиль</b><span>Попутчики · Молдова · ПМР · UA · EU</span></div></div>
+  <div id="p-access"></div>
+  <div class="lbl"><span>Я сейчас</span></div>
+  <div class="grp">
+    <button class="it" data-role="passenger"><div class="ic">🙋</div><div class="t"><b>Пассажир</b><span>ищу машину — бесплатно</span></div><span class="ok"></span></button>
+    <button class="it" data-role="driver"><div class="ic">🚗</div><div class="t"><b>Водитель</b><span>ищу пассажиров</span></div><span class="ok"></span></button>
+  </div>
+  <div class="lbl"><span>Наши группы</span></div>
+  <div class="grp" id="p-groups"></div>
+  <div class="lbl"><span>Как это работает</span></div>
+  <div class="card" style="font-size:13px;color:var(--tx2);line-height:1.5">Собираю поездки из групп попутчиков Viber и Telegram. Перевозчиков и рекламу убираю — остаются частные водители и пассажиры. Нашли поездку — звоните напрямую, о цене и месте встречи договаривайтесь с водителем.</div>
+</section>
+
+<!-- ============ КАРТОЧКА ============ -->
+<section class="over" id="o-detail"></section>
+
+<!-- ============ РАЗМЕСТИТЬ ============ -->
+<section class="over" id="o-compose">
+  <div class="hdr"><div class="t"><b>Разместить</b><span>Водители увидят сразу, а в группы — в пару нажатий</span></div></div>
+  <div class="seg" id="c-kind"><button data-kind="passenger" class="on">🙋 Нужна машина</button><button data-kind="driver">🚗 Есть свободная машина</button></div>
+  <div class="route">
+    <button class="rf" data-cpick="from"><span class="dot" style="background:var(--ok)"></span><div><div class="l">Откуда</div><div class="v" id="c-from"></div></div></button>
+    <button class="rf" data-cpick="to"><span class="dot" style="background:var(--dan)"></span><div><div class="l">Куда</div><div class="v" id="c-to"></div></div></button>
+    <button class="swap" id="c-swap">⇅</button>
+  </div>
+  <div class="chips" id="c-days"></div>
+  <div class="field"><label>Время выезда (необязательно)</label><input type="time" id="c-time"></div>
+  <div class="field" style="display:flex;align-items:center;justify-content:space-between"><div><label id="c-count-l">Сколько человек</label></div><div class="stepper"><button id="c-minus">−</button><b id="c-count">1</b><button id="c-plus">＋</button></div></div>
+  <div class="field"><label>Телефон</label><input type="tel" id="c-phone" placeholder="0 6xx xx xxx" inputmode="tel"></div>
+  <div class="field"><label>Комментарий (необязательно)</label><textarea id="c-comment" placeholder="Например: с багажом, беру передачи, от Ботаники"></textarea></div>
+  <button class="fab" id="c-publish">📢 Опубликовать</button>
+</section>
+
+<!-- ============ ОТПРАВИТЬ В ГРУППЫ ============ -->
+<section class="over" id="o-share"></section>
+
+<!-- ============ ВЫБОР ГОРОДА ============ -->
+<div class="sheet" id="sheet"><div class="box">
+  <div class="grab"></div>
+  <div class="field" style="margin:0"><label id="sh-title">Откуда</label><input id="sh-q" placeholder="Город или село" autocomplete="off"></div>
+  <div class="list grp" id="sh-list"></div>
+</div></div>
+
+<nav class="nav" id="nav">
+  <button data-tab="search" class="on"><i>🔎</i>Поиск</button>
+  <button data-tab="my"><i>📢</i>Мои</button>
+  <button data-tab="notify"><i>🔔</i>Уведомления</button>
+  <button data-tab="profile"><i>👤</i>Профиль</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram && Telegram.WebApp;
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store = { get(k, d) { try { const v = localStorage.getItem('pp_' + k); return v == null ? d : JSON.parse(v) } catch { return d } },
+                set(k, v) { try { localStorage.setItem('pp_' + k, JSON.stringify(v)) } catch {} } };
+if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#090F1C'); tg.setBackgroundColor('#090F1C'); tg.setBottomBarColor && tg.setBottomBarColor('#0B1424') } catch {} }
+const haptic = t => { try { tg.HapticFeedback.impactOccurred(t || 'light') } catch {} };
+
+async function api(path, opts = {}) {
+  const r = await fetch('/app/api/' + path, { ...opts, headers: { 'Content-Type': 'application/json', 'X-Init-Data': tg ? tg.initData : '', ...(opts.headers || {}) },
+                                            body: opts.body ? JSON.stringify(opts.body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.error || 'Ошибка ' + r.status), { status: r.status });
+  return j;
+}
+function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 1800) }
+async function copy(text, msg) {
+  try { await navigator.clipboard.writeText(text) } catch {
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy') } catch {} ta.remove()
+  }
+  haptic('medium'); toast(msg || 'Скопировано')
+}
+function openUrl(url) {
+  if (!url) return;
+  if (/^https:\/\/t\.me\//.test(url) && tg) return tg.openTelegramLink(url);
+  if (/^https?:/.test(url) && tg) return tg.openLink(url);
+  location.href = url;
+}
+function intl(ph) {
+  let d = String(ph || '').replace(/\D/g, '');
+  if (d.startsWith('373') || d.startsWith('380') || d.startsWith('40')) return '+' + d;
+  if (d.startsWith('0') && d.length === 9) return '+373' + d.slice(1);
+  if (d.length === 8) return '+373' + d;
+  return d ? '+' + d : '';
+}
+const pretty = ph => { const d = String(ph || '').replace(/\D/g, ''); const l = d.startsWith('373') ? '0' + d.slice(3) : d; return l.length === 9 ? l.replace(/(\d)(\d{2})(\d{3})(\d{3})/, '$1 $2 $3 $4') : ph };
+
+// ---------- состояние ----------
+const S = { me: null, places: { popular: [], all: [], ro: {} }, mode: store.get('mode', 'driver'), from: store.get('from', ''), to: store.get('to', ''),
+            day: 'today', items: [], tab: 'search', overlays: [],
+            c: { kind: 'passenger', from: '', to: '', day: 'today', count: 1 } };
+
+// ---------- дни ----------
+const WD = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+function isoDay(off) { const d = new Date(Date.now() + off * 864e5); return d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Chisinau' }) }
+function dayChips(withAll) {
+  const out = [['today', 'Сегодня'], ['tomorrow', 'Завтра']];
+  for (const off of [2, 3]) { const iso = isoDay(off); const [y, m, d] = iso.split('-'); const wd = WD[new Date(+y, m - 1, +d).getDay()]; out.push([iso, `${wd} ${d}.${m}`]) }
+  if (withAll) out.push(['all', 'Все дни']);
+  return out;
+}
+function renderDays() {
+  $('#days').innerHTML = dayChips(true).map(([k, t]) => `<button class="chip ${S.day === k ? 'on' : ''}" data-day="${k}">${t}</button>`).join('');
+  $('#c-days').innerHTML = dayChips(false).map(([k, t]) => `<button class="chip ${S.c.day === k ? 'on' : ''}" data-cday="${k}">${t}</button>`).join('');
+}
+
+// ---------- карточки ----------
+function cardTag(it) {
+  if (it.own) return `<span class="tag mine">⭐ Ваше</span>`;
+  if (it.stale) return `<span class="tag old">🕓 Ездит часто</span>`;
+  if (it.kind === 'driver') return `<span class="tag car">🚗 Машина${it.seats ? ' · ' + it.seats + ' ' + plural(it.seats, 'место', 'места', 'мест') : ''}</span>`;
+  return `<span class="tag pas">🙋 Ищут машину${it.people ? ' · ' + it.people + ' чел.' : ''}</span>`;
+}
+function plural(n, a, b, c) { n = Math.abs(n) % 100; const n1 = n % 10; if (n > 10 && n < 20) return c; if (n1 > 1 && n1 < 5) return b; if (n1 === 1) return a; return c }
+function cardTime(it) {
+  if (it.stale) return `<span class="time m">${esc(it.ago)}</span>`;
+  const w = it.when || '';
+  if (it.has_time && w.startsWith('сегодня')) return `<span class="time">${esc(it.time)}</span>`;
+  return `<span class="time${it.has_time ? '' : ' m'}">${esc(w)}</span>`;
+}
+const routeOf = it => `${it.from || '?'} → ${it.to || '?'}`;
+const who = it => it.author || (it.telegram ? '@' + it.telegram : '');
+function groupBtn(it) {
+  if (it.telegram) return `<a class="btn" data-act="tg" data-u="${esc(it.telegram)}">✉️ Написать</a>`;
+  if (it.group_link) return `<a class="btn${it.group_kind === 'viber' ? ' v' : ''}" data-act="url" data-url="${esc(it.group_link)}">🔗 Группа</a>`;
+  return '';
+}
+function cardHtml(it, i) {
+  const text = (it.text || it.comment || '').trim();
+  const short = text.length > 170 ? text.slice(0, 170) + '…' : text;
+  const meta = [who(it), it.source_label, it.ago].filter(Boolean).map(esc).join(' · ');
+  const call = it.phone ? `<a class="btn y" data-act="call" data-ph="${esc(it.phone)}">📞 Позвонить</a>` : '';
+  const acts = call + groupBtn(it);
+  return `<div class="card${it.stale ? ' stale' : ''}" data-i="${i}">
+    <div class="ct">${cardTag(it)}${cardTime(it)}</div>
+    <div class="rt">${esc(routeOf(it))}</div><div class="meta">${meta}</div>
+    ${short ? `<div class="txt">${esc(short)}</div>` : '<div style="height:10px"></div>'}
+    ${acts ? `<div class="acts">${acts}</div>` : ''}</div>`;
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-act]');
+  if (!a) return;
+  e.stopPropagation(); e.preventDefault(); haptic();
+  const act = a.dataset.act;
+  if (act === 'call') location.href = 'tel:' + intl(a.dataset.ph);
+  else if (act === 'viber') location.href = 'viber://chat?number=' + encodeURIComponent(intl(a.dataset.ph));
+  else if (act === 'copy') copy(pretty(a.dataset.ph), 'Номер скопирован');
+  else if (act === 'tg') openUrl('https://t.me/' + a.dataset.u);
+  else if (act === 'url') openUrl(a.dataset.url);
+}, true);
+
+// ---------- поиск ----------
+function renderRoute() {
+  $('#s-from').textContent = S.from || 'Любой город'; $('#s-from').classList.toggle('ph', !S.from);
+  $('#s-to').textContent = S.to || 'Куда угодно'; $('#s-to').classList.toggle('ph', !S.to);
+  $$('#seg-mode button').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode));
+  $('#fab').textContent = S.mode === 'driver' ? '📢 Разместить: «Хочу поехать»' : '📢 Разместить: «Есть свободная машина»';
+  const saved = S.me && S.me.filters.some(f => f.want === S.mode && f.from === (S.from || null) && f.to === (S.to || null) && f.enabled);
+  $('#save-route').style.visibility = (S.from || S.to) ? 'visible' : 'hidden';
+  $('#save-route').textContent = saved ? '🔔 Маршрут сохранён' : '⭐ Сохранить маршрут';
+  store.set('mode', S.mode); store.set('from', S.from); store.set('to', S.to);
+}
+let loadSeq = 0;
+async function loadRides() {
+  const seq = ++loadSeq;
+  renderRoute();
+  $('#found').textContent = 'Ищу…';
+  $('#list').innerHTML = '<div class="skel"></div><div class="skel"></div>';
+  const q = new URLSearchParams({ kind: S.mode, from: S.from, to: S.to, day: S.day });
+  let r;
+  try { r = await api('rides?' + q) } catch (e) { if (seq === loadSeq) $('#list').innerHTML = `<div class="empty"><b>Не загрузилось</b>${esc(e.message)}</div>`; return }
+  if (seq !== loadSeq) return;
+  if (r.locked) {
+    $('#found').textContent = 'Заявки пассажиров';
+    $('#list').innerHTML = `<div class="hero lock"><b>⛔️ Пробный доступ закончился</b><span>${esc(r.payment_text)}</span></div>`;
+    return;
+  }
+  S.items = r.items;
+  const live = r.items.filter(x => !x.stale).length;
+  $('#found').textContent = `Найдено ${live}`;
+  if (!r.items.length) {
+    const other = S.day !== 'all' ? `<button class="btn" id="all-days">Смотреть все дни</button>` : '';
+    $('#list').innerHTML = `<div class="empty"><b>Пока никого 🤷</b>Разместите заявку — водители увидят её сразу. Или сохраните маршрут, пришлю, как появится.<br>${other}</div>`;
+    const b = $('#all-days'); if (b) b.onclick = () => { S.day = 'all'; renderDays(); loadRides() };
+    return;
+  }
+  $('#list').innerHTML = r.items.map(cardHtml).join('');
+}
+$('#list').addEventListener('click', e => { const c = e.target.closest('.card'); if (c) openDetail(S.items[+c.dataset.i]) });
+$('#seg-mode').onclick = e => { const b = e.target.closest('button'); if (!b || b.dataset.mode === S.mode) return; haptic(); S.mode = b.dataset.mode; loadRides() };
+$('#swap').onclick = () => { haptic(); [S.from, S.to] = [S.to, S.from]; loadRides() };
+$('#days').onclick = e => { const b = e.target.closest('[data-day]'); if (!b) return; haptic(); S.day = b.dataset.day; renderDays(); loadRides() };
+$$('[data-pick]').forEach(b => b.onclick = () => pickPlace(b.dataset.pick === 'from' ? 'Откуда' : 'Куда', true, v => { S[b.dataset.pick] = v; loadRides() }));
+$('#save-route').onclick = async () => {
+  haptic('medium');
+  try { await api('filters', { method: 'POST', body: { from: S.from, to: S.to, want: S.mode, both: true } }); await loadMe(); renderRoute(); toast('🔔 Пришлю новые поездки по маршруту') } catch (e) { toast(e.message) }
+};
+$('#fab').onclick = () => openCompose(S.mode === 'driver' ? 'passenger' : 'driver');
+
+// ---------- карточка поездки ----------
+function openDetail(it) {
+  if (!it) return;
+  const isCar = it.kind === 'driver';
+  const sub = [it.when, isCar && it.seats ? `${it.seats} ${plural(it.seats, 'свободное место', 'свободных места', 'свободных мест')}` : '', !isCar && it.people ? `${it.people} чел.` : ''].filter(Boolean).join(' · ');
+  const following = S.me && S.me.filters.some(f => f.want === it.kind && f.from === it.from && f.to === it.to && f.enabled);
+  const srcRow = it.group_link
+    ? `<button class="kv" data-act="url" data-url="${esc(it.group_link)}"><span>Откуда взято</span><b class="lnk">${esc(it.source_label)} ›</b></button>`
+    : `<div class="kv"><span>Откуда взято</span><b>${esc(it.source_label)}</b></div>`;
+  const text = (it.text || '').trim();
+  $('#o-detail').innerHTML = `
+    <div class="hero"><span class="tag ${it.stale ? 'old' : isCar ? 'car' : 'pas'}">${it.stale ? '🕓 Ездит по этому маршруту' : isCar ? '🚗 Свободная машина' : '🙋 Ищут машину'}</span>
+      <div class="big">${esc(routeOf(it))}</div><span>${esc(sub)}</span></div>
+    ${it.phone ? `<button class="phonebox" data-act="copy" data-ph="${esc(it.phone)}"><div>${esc(pretty(it.phone))}<small>номер из объявления · нажмите, чтобы скопировать</small></div><span style="font-size:22px">📋</span></button>
+      <div class="acts" style="margin-bottom:12px"><a class="btn y big" data-act="call" data-ph="${esc(it.phone)}">📞 Позвонить</a><a class="btn v big" data-act="viber" data-ph="${esc(it.phone)}">💬 Viber</a></div>`
+      : `<div class="acts" style="margin:12px 0">${groupBtn(it).replace('class="btn', 'class="btn y big')}</div>`}
+    ${it.telegram && it.phone ? `<div class="acts" style="margin-bottom:12px"><a class="btn" data-act="tg" data-u="${esc(it.telegram)}">✉️ Написать в Telegram</a></div>` : ''}
+    <div class="lbl"><span>Подробно</span></div>
+    <div class="grp">
+      ${who(it) ? `<div class="kv"><span>${isCar ? 'Водитель' : 'Пассажир'}</span><b>${esc(who(it))}</b></div>` : ''}
+      ${srcRow}
+      ${it.ago ? `<div class="kv"><span>Написал</span><b>${esc(it.ago)}</b></div>` : ''}
+      <div class="kv"><span>Когда</span><b>${esc(it.when || '—')}</b></div>
+    </div>
+    ${text || it.comment ? `<div class="lbl"><span>Текст объявления</span></div><div class="card" style="font-size:13.5px;color:var(--tx2);line-height:1.5;white-space:pre-line">${esc(text || it.comment)}${text && it.comment ? '\n\n💬 ' + esc(it.comment) : ''}</div>` : ''}
+    <div class="grp" style="margin-top:10px">
+      <button class="it" id="d-follow"><div class="ic">🔔</div><div class="t"><b>Присылать такие поездки</b><span>${esc(routeOf(it))}</span></div><div class="sw ${following ? 'on' : ''}"></div></button>
+      ${it.own ? `<button class="it" id="d-close"><div class="ic">✕</div><div class="t"><b>Снять объявление</b><span>Уже нашли машину или пассажиров</span></div><span class="arr">›</span></button>`
+               : `<button class="it" id="d-report"><div class="ic">⚠️</div><div class="t"><b>Пожаловаться</b><span>Не актуально, перевозчик или спам</span></div><span class="arr">›</span></button>`}
+    </div>`;
+  $('#d-follow').onclick = async e => {
+    const sw = e.currentTarget.querySelector('.sw'); haptic('medium');
+    try {
+      if (sw.classList.contains('on')) {
+        const f = S.me.filters.find(f => f.want === it.kind && f.from === it.from && f.to === it.to && f.enabled);
+        if (f) await api('filters/' + f.id, { method: 'POST', body: { enabled: false } });
+        sw.classList.remove('on'); toast('Больше не пришлю');
+      } else {
+        await api('filters', { method: 'POST', body: { from: it.from, to: it.to, want: it.kind, both: true } });
+        sw.classList.add('on'); toast('🔔 Пришлю новые поездки');
+      }
+      await loadMe();
+    } catch (er) { toast(er.message) }
+  };
+  const rep = $('#d-report');
+  if (rep) rep.onclick = () => {
+    const send = reason => api('report', { method: 'POST', body: { id: it.id, reason } }).then(() => toast('Спасибо, проверим'));
+    if (tg && tg.showPopup) tg.showPopup({ title: 'Пожаловаться', message: 'Что не так с объявлением?', buttons: [{ id: 'Не актуально', type: 'default', text: 'Не актуально' }, { id: 'Перевозчик / реклама', type: 'default', text: 'Перевозчик' }, { id: 'Спам', type: 'destructive', text: 'Спам' }] }, id => id && send(id));
+    else send('жалоба');
+  };
+  const cl = $('#d-close');
+  if (cl) cl.onclick = () => closePost(it.id);
+  openOver('o-detail');
+}
+
+// ---------- оверлеи и кнопка «Назад» ----------
+function openOver(id) {
+  $$('.over').forEach(o => o.classList.toggle('on', o.id === id));
+  $('#' + id).scrollTop = 0;
+  S.overlays = S.overlays.filter(x => x !== id); S.overlays.push(id);
+  $('#fab').style.display = 'none'; $('#nav').style.display = 'none';
+  if (tg) tg.BackButton.show();
+}
+function back() {
+  if ($('#sheet').classList.contains('on')) return closeSheet();
+  S.overlays.pop();
+  const top = S.overlays[S.overlays.length - 1];
+  $$('.over').forEach(o => o.classList.toggle('on', o.id === top));
+  if (!top) { $('#nav').style.display = ''; $('#fab').style.display = S.tab === 'search' ? '' : 'none'; if (tg) tg.BackButton.hide() }
+}
+if (tg) tg.BackButton.onClick(back);
+
+// ---------- вкладки ----------
+function showTab(t) {
+  S.tab = t;
+  while (S.overlays.length) back();
+  $$('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + t));
+  $$('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  $('#fab').style.display = t === 'search' ? '' : 'none';
+  if (t === 'my') loadMy();
+  if (t === 'notify') renderNotify();
+  if (t === 'profile') renderProfile();
+}
+$$('[data-tab]').forEach(b => b.onclick = () => { haptic(); showTab(b.dataset.tab) });
+
+// ---------- выбор города ----------
+const norm = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[ăâ]/g, 'a').replace(/î/g, 'i').replace(/[șş]/g, 's').replace(/[țţ]/g, 't').trim();
+let sheetCb = null, sheetAny = true;
+function pickPlace(title, allowAny, cb) {
+  sheetCb = cb; sheetAny = allowAny;
+  $('#sh-title').textContent = title; $('#sh-q').value = '';
+  renderSheet(); $('#sheet').classList.add('on');
+  if (tg) tg.BackButton.show();
+  setTimeout(() => $('#sh-q').focus(), 250);
+}
+function closeSheet() { $('#sheet').classList.remove('on'); if (tg && !S.overlays.length) tg.BackButton.hide() }
+function renderSheet() {
+  const q = norm($('#sh-q').value);
+  let list;
+  if (!q) list = S.places.popular;
+  else {
+    const all = S.places.all.map(p => [p, norm(p), norm(S.places.ro[p] || '')]);
+    list = [...all.filter(x => x[1].startsWith(q) || x[2].startsWith(q)), ...all.filter(x => !(x[1].startsWith(q) || x[2].startsWith(q)) && (x[1].includes(q) || x[2].includes(q)))].map(x => x[0]).slice(0, 40);
+  }
+  const rows = [];
+  if (sheetAny && !q) rows.push(`<button class="it" data-place=""><div class="ic">🌍</div><div class="t"><b>Любой город</b><span>все направления</span></div></button>`);
+  for (const p of list) rows.push(`<button class="it" data-place="${esc(p)}"><div class="ic">📍</div><div class="t"><b>${esc(p)}</b>${S.places.ro[p] ? `<span>${esc(S.places.ro[p])}</span>` : ''}</div></button>`);
+  if (q && !list.length) rows.push(`<button class="it" data-place="${esc($('#sh-q').value.trim())}"><div class="ic">✏️</div><div class="t"><b>${esc($('#sh-q').value.trim())}</b><span>как написано</span></div></button>`);
+  $('#sh-list').innerHTML = rows.join('');
+}
+$('#sh-q').oninput = renderSheet;
+$('#sh-list').onclick = e => { const b = e.target.closest('[data-place]'); if (!b) return; haptic(); closeSheet(); sheetCb && sheetCb(b.dataset.place) };
+$('#sheet').onclick = e => { if (e.target.id === 'sheet') closeSheet() };
+
+// ---------- разместить ----------
+function openCompose(kind) {
+  S.c.kind = kind; S.c.from = S.from; S.c.to = S.to;
+  $('#c-phone').value = store.get('phone', '');
+  renderCompose(); openOver('o-compose');
+}
+function renderCompose() {
+  $$('#c-kind button').forEach(b => b.classList.toggle('on', b.dataset.kind === S.c.kind));
+  $('#c-from').textContent = S.c.from || 'Выберите город'; $('#c-from').classList.toggle('ph', !S.c.from);
+  $('#c-to').textContent = S.c.to || 'Выберите город'; $('#c-to').classList.toggle('ph', !S.c.to);
+  $('#c-count').textContent = S.c.count;
+  $('#c-count-l').textContent = S.c.kind === 'driver' ? 'Свободных мест' : 'Сколько человек';
+  renderDays();
+}
+$('#c-kind').onclick = e => { const b = e.target.closest('button'); if (b) { haptic(); S.c.kind = b.dataset.kind; renderCompose() } };
+$$('[data-cpick]').forEach(b => b.onclick = () => pickPlace(b.dataset.cpick === 'from' ? 'Откуда' : 'Куда', false, v => { S.c[b.dataset.cpick] = v; renderCompose() }));
+$('#c-swap').onclick = () => { [S.c.from, S.c.to] = [S.c.to, S.c.from]; renderCompose() };
+$('#c-days').onclick = e => { const b = e.target.closest('[data-cday]'); if (b) { haptic(); S.c.day = b.dataset.cday; renderDays() } };
+$('#c-minus').onclick = () => { S.c.count = Math.max(1, S.c.count - 1); renderCompose() };
+$('#c-plus').onclick = () => { S.c.count = Math.min(8, S.c.count + 1); renderCompose() };
+$('#c-publish').onclick = async () => {
+  if (!S.c.from || !S.c.to) return toast('Укажите откуда и куда');
+  const phone = $('#c-phone').value.trim();
+  if (!phone) { $('#c-phone').focus(); return toast('Укажите телефон — так с вами свяжутся') }
+  store.set('phone', phone);
+  const btn = $('#c-publish'); btn.disabled = true; btn.textContent = 'Публикую…';
+  try {
+    const r = await api('publish', { method: 'POST', body: { kind: S.c.kind, from: S.c.from, to: S.c.to, day: S.c.day, time: $('#c-time').value, count: S.c.count, phone, comment: $('#c-comment').value } });
+    haptic('heavy'); $('#c-comment').value = ''; $('#c-time').value = '';
+    await loadMe();
+    S.overlays = S.overlays.filter(x => x !== 'o-compose');
+    openShare(r.item, r.sent);
+  } catch (e) { toast(e.message) }
+  btn.disabled = false; btn.textContent = '📢 Опубликовать';
+};
+
+// ---------- отправить в группы ----------
+function shareText(it) {
+  const head = it.kind === 'driver' ? `🚗 Есть свободная машина · ${routeOf(it)}` : `🙋 Ищу машину · ${routeOf(it)}`;
+  const w = (it.when || '').replace(/^./, c => c.toUpperCase());
+  const n = it.kind === 'driver' ? (it.seats ? `${it.seats} ${plural(it.seats, 'место', 'места', 'мест')}` : '') : (it.people ? `${it.people} ${plural(it.people, 'место', 'места', 'мест')}` : '');
+  return [head, `🕐 ${[w, n].filter(Boolean).join(' · ')}`, it.comment ? `💬 ${it.comment}` : '', it.phone ? `📞 ${pretty(it.phone)}` : ''].filter(Boolean).join('\n');
+}
+function openShare(it, sent) {
+  const text = shareText(it);
+  const g = (S.me && S.me.groups) || { viber: [], telegram: [] };
+  const who = it.kind === 'driver' ? 'пассажирам' : 'водителям';
+  $('#o-share').innerHTML = `
+    <div class="hero"><b>✅ Опубликовано</b><span>${sent != null ? `Уже отправлено ${who}: ${sent}. ` : ''}Заявка в ленте Попутчиков. Отправьте её и в группы — так увидит больше людей.</span></div>
+    <div class="lbl"><span>Текст заявки</span></div>
+    <div class="preview">${esc(text)}</div>
+    <div class="stack">
+      <button class="btn v big" id="sh-viber">💜 Отправить в Viber-группы</button>
+      <button class="btn big" style="background:#1d3a55;border-color:#2b5278" id="sh-tg">✈️ Отправить в Telegram-группу</button>
+      <button class="btn big" id="sh-copy">📋 Скопировать текст</button>
+    </div>
+    <p class="note">Viber откроет «Переслать» с готовым текстом — отметьте сразу несколько групп и нажмите «Отправить».</p>
+    <div class="lbl"><span>Наши группы — вступите, если ещё нет</span></div>
+    <div class="grp">${groupRows(g)}</div>`;
+  $('#sh-viber').onclick = () => { haptic('medium'); location.href = 'viber://forward?text=' + encodeURIComponent(text) };
+  $('#sh-tg').onclick = () => { haptic('medium'); openUrl(`https://t.me/share/url?url=${encodeURIComponent('https://t.me/' + ((S.me && S.me.bot) || 'MI_transferBot'))}&text=${encodeURIComponent(text)}`) };
+  $('#sh-copy').onclick = () => copy(text, 'Текст скопирован');
+  openOver('o-share');
+}
+function groupRows(g) {
+  return [...g.viber.map(x => `<button class="it" data-act="url" data-url="${esc(x.url)}"><div class="ic" style="background:#2a2550">💜</div><div class="t"><b>${esc(x.name)}</b><span>Viber</span></div><span class="arr" style="font-size:13px;color:var(--acc);font-weight:600">Вступить ›</span></button>`),
+          ...g.telegram.map(x => `<button class="it" data-act="url" data-url="${esc(x.url)}"><div class="ic" style="background:#1d3a55">✈️</div><div class="t"><b>${esc(x.name)}</b><span>Telegram</span></div><span class="arr" style="font-size:13px;color:var(--acc);font-weight:600">Вступить ›</span></button>`)].join('');
+}
+
+// ---------- мои ----------
+let myItems = [];
+async function loadMy() {
+  $('#my-list').innerHTML = '<div class="skel"></div>';
+  try { myItems = (await api('my')).items } catch (e) { $('#my-list').innerHTML = `<div class="empty"><b>Не загрузилось</b>${esc(e.message)}</div>`; return }
+  if (!myItems.length) {
+    $('#my-list').innerHTML = `<div class="empty"><b>Объявлений пока нет</b>Разместите «Хочу поехать» или «Есть свободная машина» — водители и пассажиры увидят сразу.<br><button class="btn y" id="my-new">📢 Разместить</button></div>`;
+    $('#my-new').onclick = () => openCompose('passenger');
+    return;
+  }
+  $('#my-list').innerHTML = myItems.map((it, i) => `<div class="card" data-i="${i}">
+      <div class="ct">${cardTag({ ...it, own: false })}${cardTime(it)}</div>
+      <div class="rt">${esc(routeOf(it))}</div>${it.comment ? `<div class="txt">${esc(it.comment)}</div>` : '<div style="height:10px"></div>'}
+      <div class="acts"><button class="btn y" data-share="${i}">📤 В группы</button><button class="btn r" data-close="${it.id}">✕ Снять</button></div></div>`).join('')
+    + `<button class="btn y big" id="my-new" style="width:100%;margin-top:6px">📢 Разместить ещё</button>`;
+  $('#my-new').onclick = () => openCompose('passenger');
+}
+$('#my-list').addEventListener('click', e => {
+  const s = e.target.closest('[data-share]'); if (s) { haptic(); return openShare(myItems[+s.dataset.share]) }
+  const c = e.target.closest('[data-close]'); if (c) return closePost(+c.dataset.close);
+});
+async function closePost(id) {
+  const go = async () => { try { await api('my/' + id, { method: 'DELETE' }); toast('Объявление снято'); while (S.overlays.length) back(); if (S.tab === 'my') loadMy(); else loadRides() } catch (e) { toast(e.message) } };
+  if (tg && tg.showConfirm) tg.showConfirm('Снять объявление? Его больше не увидят.', ok => ok && go()); else go();
+}
+
+// ---------- уведомления ----------
+function renderNotify() {
+  const me = S.me; if (!me) return;
+  $('#n-active .sw').classList.toggle('on', me.active);
+  const on = me.filters.filter(f => f.enabled).length;
+  $('#n-active-sub').textContent = me.active ? (on ? `Маршрутов включено: ${on}` : 'Добавьте маршрут ниже') : 'Сейчас ничего не присылаю';
+  $('#n-quiet .sw').classList.toggle('on', me.quiet);
+  $('#n-routes').innerHTML = me.filters.length ? me.filters.map(f => {
+    const t = f.title.replace(/^🛣\s*/, '').replace(/\s*\(.*\)$/, '');
+    const sub = [f.kind === 'route' ? (f.both && f.from && f.to ? 'туда и обратно' : 'в одну сторону') : 'целый регион', f.want === 'driver' ? 'машины' : 'пассажиры'].join(' · ');
+    return `<div class="it" data-f="${f.id}"><div class="ic">${f.kind === 'route' ? '🛣' : '🗺'}</div><div class="t"><b>${esc(t)}</b><span>${esc(sub)}</span></div><button class="arr" data-fdel="${f.id}" style="padding:0 6px">✕</button><button class="sw ${f.enabled ? 'on' : ''}" data-ftog="${f.id}"></button></div>`;
+  }).join('') : `<div class="it"><div class="ic">🛣</div><div class="t"><b>Маршрутов пока нет</b><span>Нажмите «＋ Добавить» — и пришлю новые поездки</span></div></div>`;
+}
+$('#n-routes').onclick = async e => {
+  const t = e.target.closest('[data-ftog]'), d = e.target.closest('[data-fdel]');
+  try {
+    if (t) { haptic(); const on = !t.classList.contains('on'); t.classList.toggle('on', on); await api('filters/' + t.dataset.ftog, { method: 'POST', body: { enabled: on } }); await loadMe(); renderNotify() }
+    if (d) { const go = async () => { await api('filters/' + d.dataset.fdel, { method: 'DELETE' }); await loadMe(); renderNotify(); toast('Маршрут удалён') };
+             if (tg && tg.showConfirm) tg.showConfirm('Удалить маршрут?', ok => ok && go()); else go() }
+  } catch (er) { toast(er.message) }
+};
+$('#n-active').onclick = async () => { haptic(); S.me.active = !S.me.active; renderNotify(); await api('settings', { method: 'POST', body: { active: S.me.active } }).catch(e => toast(e.message)) };
+$('#n-quiet').onclick = async () => { haptic(); S.me.quiet = !S.me.quiet; renderNotify(); await api('settings', { method: 'POST', body: { quiet: S.me.quiet } }).catch(e => toast(e.message)) };
+$('#n-add').onclick = () => pickPlace('Откуда', true, frm => pickPlace('Куда', true, async to => {
+  if (!frm && !to) return toast('Укажите хотя бы один город');
+  try { await api('filters', { method: 'POST', body: { from: frm, to, want: S.mode, both: true } }); await loadMe(); renderNotify(); toast('🔔 Маршрут добавлен') } catch (e) { toast(e.message) }
+}));
+
+// ---------- профиль ----------
+function renderProfile() {
+  const me = S.me; if (!me) return;
+  $('#p-name').textContent = me.name || 'Профиль';
+  $$('[data-role]').forEach(b => b.querySelector('.ok').textContent = (me.role || 'passenger') === b.dataset.role ? '✓' : '');
+  const until = new Date(me.access_until * 1000).toLocaleDateString('ru-RU');
+  $('#p-access').innerHTML = me.role === 'driver'
+    ? (me.has_access ? `<div class="hero"><b>✅ Доступ водителя до ${until}</b><span>Заявки пассажиров приходят по вашим маршрутам.</span></div>`
+                     : `<div class="hero" style="border-color:#5a2222;background:linear-gradient(135deg,#3A1717,#121F32 70%)"><b>⛔️ Доступ закончился</b><span>${esc(me.payment_text)}</span></div>`)
+    : `<div class="hero"><b>🙋 Для пассажиров бесплатно</b><span>Ищите машины, размещайте заявки и получайте уведомления.</span></div>`;
+  $('#p-groups').innerHTML = groupRows(me.groups);
+}
+$$('[data-role]').forEach(b => b.onclick = async () => {
+  haptic(); S.me.role = b.dataset.role; renderProfile();
+  S.mode = b.dataset.role === 'driver' ? 'passenger' : 'driver';
+  try { await api('role', { method: 'POST', body: { role: b.dataset.role } }); await loadMe(); renderProfile() } catch (e) { toast(e.message) }
+});
+
+// ---------- старт ----------
+async function loadMe() { S.me = await api('me') }
+(async function init() {
+  renderDays(); renderRoute();
+  if (!tg || !tg.initData) {
+    $('#list').innerHTML = `<div class="empty"><b>Откройте через Telegram</b>Бот @MI_transferBot → кнопка «🚕 Открыть».</div>`;
+    return;
+  }
+  try {
+    const [me, places] = await Promise.all([api('me'), api('places')]);
+    S.me = me; S.places = places;
+    if (!store.get('mode', null)) S.mode = me.role === 'driver' ? 'passenger' : 'driver';
+  } catch (e) { $('#list').innerHTML = `<div class="empty"><b>Не удалось войти</b>${esc(e.message)}</div>`; return }
+  loadRides();
+  // Открыть конкретную поездку: кнопка «🔎 Открыть» под уведомлением (?p=123) или ссылка с startapp=p123
+  const pid = new URLSearchParams(location.search).get('p') || ((tg.initDataUnsafe.start_param || '').match(/^p(\d+)$/) || [])[1];
+  if (pid) { try { openDetail((await api('post?id=' + pid)).item) } catch {} }
+})();
+</script>
+</body>
+</html>

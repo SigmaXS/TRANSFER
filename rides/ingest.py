@@ -238,6 +238,8 @@ def make_app(db: RidesDB, notifier: Notifier) -> web.Application:
     app = web.Application()
     from .api import make_api
     make_api(app, db)                       # лента для приложения Taxi Radar
+    from .webapp import make_webapp
+    make_webapp(app, db, notifier)          # Mini App «Попутчики» в Telegram: /app
     app.router.add_post("/ingest", ingest)
     app.router.add_get("/ingest", ingest)   # некоторые приложения умеют только GET
     app.router.add_get("/", health)
