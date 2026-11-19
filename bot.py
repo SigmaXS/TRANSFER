@@ -42,7 +42,7 @@ async def setup_profile(bot: Bot):
             await bot.set_my_short_description(BOT_SHORT_DESCRIPTION)
         if (await bot.get_my_description()).description != BOT_DESCRIPTION:
             await bot.set_my_description(BOT_DESCRIPTION)
-        await bot.set_my_commands([BotCommand(command="start", description="Главное меню и фильтры")])
+        await bot.set_my_commands([BotCommand(command="start", description="🚕 Открыть Попутчики")])
         admin_cmds = [BotCommand(command="start", description="Главное меню"),
                       BotCommand(command="sources", description="Группы и сайты, которые читает бот"),
                       BotCommand(command="findgroups", description="Найти группы попутчиков"),
