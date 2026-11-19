@@ -40,9 +40,20 @@ def notify_keyboard(post: dict, filter_id: int | None) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def _quiet_now() -> bool:
-    h = datetime.now(TZ).hour
-    return h >= 23 or h < 7
+def _in_quiet(window: tuple[str, str]) -> bool:
+    """Сейчас внутри тихих часов? Окно может переходить через полночь: 23:00–07:00."""
+    def mins(s):
+        try:
+            h, m = (int(x) for x in s.split(":"))
+            return h * 60 + m
+        except (ValueError, AttributeError):
+            return None
+    a, b = mins(window[0]), mins(window[1])
+    if a is None or b is None or a == b:
+        return False
+    now = datetime.now(TZ)
+    n = now.hour * 60 + now.minute
+    return a <= n < b if a < b else (n >= a or n < b)
 
 
 class Notifier:
@@ -56,7 +67,7 @@ class Notifier:
             return 0
         parsed = post_to_parsed(post)
         text = format_post(post)
-        quiet = await self.db.quiet_users() if _quiet_now() else set()
+        quiet = {uid for uid, w in (await self.db.quiet_users()).items() if _in_quiet(w)}
         sent = 0
         for user, filters in await self.db.recipients(want=post["kind"]):
             if user.user_id == post.get("author_id"):

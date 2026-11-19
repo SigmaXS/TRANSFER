@@ -163,7 +163,10 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
         return web.json_response({
             "id": user["id"], "name": user.get("first_name") or "", "role": u.role,
             "has_access": u.has_access(), "access_until": u.access_until(), "active": u.active,
-            "quiet": bool(row.get("quiet")), "payment_text": PAYMENT_TEXT, "filters": filters,
+            "quiet": bool(row.get("quiet")), "quiet_from": row.get("quiet_from") or "23:00",
+            "quiet_to": row.get("quiet_to") or "07:00",
+            "profile": (json.loads(row["profile"]) if isinstance(row.get("profile"), str) else row.get("profile")) or {},
+            "payment_text": PAYMENT_TEXT, "filters": filters,
             "groups": _groups(), "bot": BOT_USERNAME, "channel": CHANNEL or None,
             "is_admin": user["id"] in ADMIN_IDS,
         })
@@ -262,6 +265,9 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
             await db.set_active(user["id"], bool(b["active"]))
         if "quiet" in b:
             await db.set_quiet(user["id"], bool(b["quiet"]))
+        hm = re.compile(r"([01]?\d|2[0-3]):[0-5]\d")
+        if hm.fullmatch(str(b.get("quiet_from", ""))) and hm.fullmatch(str(b.get("quiet_to", ""))):
+            await db.set_quiet_hours(user["id"], b["quiet_from"], b["quiet_to"])
         return web.json_response({"ok": True})
 
     async def publish(request):
@@ -291,6 +297,10 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
         post = await db.save_post(post_from_bot(
             kind=kind, from_place=frm, to_place=to, when=when, date=date_str, time_str=time_str, count=count,
             comment=comment, user_id=user["id"], username=user.get("username"), name=name, phone=phone))
+        pretty = (b.get("text") or "").strip()[:1500]
+        if pretty:
+            await db.pool.execute("UPDATE ride_posts SET text=$2 WHERE id=$1", post["id"], pretty)
+            post["text"] = pretty
         sent = await notifier.dispatch(post)
         await log(user["id"], "publish", {"kind": kind, "from": frm, "to": to, "sent": sent})
         if CHANNEL:
@@ -323,6 +333,9 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
         day_start = datetime.combine(datetime.now(TZ).date(), datetime.min.time(), TZ).timestamp()
         stats = await db.admin_stats(day_start)
         stats["online"] = sum(1 for t in ONLINE.values() if now - t < 180)
+        stats["registered"] = [{"id": r["user_id"], "username": r["username"], "role": r["role"],
+                                "at": r["profile_at"] or r["created_at"], "posts": r["posts"], **(r["profile"] or {})}
+                               for r in await db.registered()]
         return web.json_response(stats)
 
     async def reset(request):
@@ -333,6 +346,18 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
         await db.set_active(user["id"], True)
         await db.set_quiet(user["id"], False)
         return web.json_response({"ok": True})
+
+    async def profile(request):
+        """Данные для готовых заявок: подставляются в «Разместить»."""
+        user = await auth(request)
+        b = await body(request)
+        txt = lambda k, n=60: str(b.get(k) or "").strip()[:n]  # noqa: E731
+        prof = {"name": txt("name", 40), "phone": re.sub(r"[^\d+ ]", "", txt("phone", 20)).strip(),
+                "viber": bool(b.get("viber")), "whatsapp": bool(b.get("whatsapp")), "telegram": bool(b.get("telegram")),
+                "car": txt("car"), "pickup": txt("pickup"), "parcels": bool(b.get("parcels"))}
+        await db.set_profile(user["id"], prof)
+        await log(user["id"], "profile", {"phone": bool(prof["phone"])})
+        return web.json_response({"ok": True, "profile": prof})
 
     async def my(request):
         user = await auth(request)
@@ -374,6 +399,7 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
     app.router.add_post("/app/api/settings", settings)
     app.router.add_post("/app/api/publish", publish)
     app.router.add_get("/app/api/my", my)
+    app.router.add_post("/app/api/profile", profile)
     app.router.add_post("/app/api/reset", reset)
     app.router.add_post("/app/api/ev", event)
     app.router.add_get("/app/api/admin", admin)

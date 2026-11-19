@@ -40,6 +40,11 @@ ALTER TABLE ride_filters ADD COLUMN IF NOT EXISTS want TEXT DEFAULT 'passenger';
 -- Mini App: маршрут можно выключить, не удаляя; тихие часы (23–07 без звука)
 ALTER TABLE ride_filters ADD COLUMN IF NOT EXISTS enabled BOOLEAN DEFAULT TRUE;
 ALTER TABLE ride_users ADD COLUMN IF NOT EXISTS quiet BOOLEAN DEFAULT FALSE;
+-- Тихие часы со своим временем и данные профиля (имя, телефон, где писать, машина…) для готовых заявок
+ALTER TABLE ride_users ADD COLUMN IF NOT EXISTS quiet_from TEXT DEFAULT '23:00';
+ALTER TABLE ride_users ADD COLUMN IF NOT EXISTS quiet_to TEXT DEFAULT '07:00';
+ALTER TABLE ride_users ADD COLUMN IF NOT EXISTS profile JSONB;
+ALTER TABLE ride_users ADD COLUMN IF NOT EXISTS profile_at DOUBLE PRECISION;
 
 -- Что делают люди в боте и Mini App: открыл, искал, разместил, позвонил… — для админ-панели
 CREATE TABLE IF NOT EXISTS ride_events (
@@ -201,8 +206,31 @@ class RidesDB:
     async def set_quiet(self, user_id: int, quiet: bool):
         await self.pool.execute("UPDATE ride_users SET quiet=$2 WHERE user_id=$1", user_id, quiet)
 
-    async def quiet_users(self) -> set[int]:
-        return {r["user_id"] for r in await self.pool.fetch("SELECT user_id FROM ride_users WHERE quiet")}
+    async def quiet_users(self) -> dict[int, tuple[str, str]]:
+        """Кто включил тихие часы: user_id → (с, до), например ('23:00', '07:00')."""
+        return {r["user_id"]: (r["quiet_from"] or "23:00", r["quiet_to"] or "07:00")
+                for r in await self.pool.fetch("SELECT user_id, quiet_from, quiet_to FROM ride_users WHERE quiet")}
+
+    async def set_quiet_hours(self, user_id: int, frm: str, to: str):
+        await self.pool.execute("UPDATE ride_users SET quiet_from=$2, quiet_to=$3 WHERE user_id=$1", user_id, frm, to)
+
+    async def set_profile(self, user_id: int, profile: dict):
+        await self.pool.execute("UPDATE ride_users SET profile=$2::jsonb, profile_at=$3 WHERE user_id=$1",
+                                user_id, json.dumps(profile, ensure_ascii=False), time.time())
+
+    async def registered(self, limit: int = 100) -> list[dict]:
+        """Заполнившие профиль (есть телефон): для админ-панели."""
+        rows = await self.pool.fetch(
+            """SELECT u.user_id, u.username, u.role, u.created_at, u.profile, u.profile_at,
+                      (SELECT count(*) FROM ride_posts p WHERE p.author_id = u.user_id AND p.source = 'bot') AS posts
+                 FROM ride_users u WHERE u.profile IS NOT NULL AND COALESCE(u.profile->>'phone', '') <> ''
+                ORDER BY u.profile_at DESC NULLS LAST LIMIT $1""", limit)
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["profile"] = json.loads(d["profile"]) if isinstance(d["profile"], str) else d["profile"]
+            out.append(d)
+        return out
 
     async def user_row(self, user_id: int) -> dict | None:
         r = await self.pool.fetchrow("SELECT * FROM ride_users WHERE user_id=$1", user_id)

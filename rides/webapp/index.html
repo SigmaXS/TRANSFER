@@ -52,6 +52,11 @@ a{color:inherit;text-decoration:none}
 .bar{height:8px;border-radius:6px;background:var(--acc);min-width:3px}
 .drow{display:grid;grid-template-columns:44px 1fr 34px 34px;gap:8px;align-items:center;padding:7px 14px;font-size:12.5px}
 .drow+.drow{border-top:1px solid var(--line)}.drow span{color:var(--mut);text-align:right}
+.chip.tog{display:inline-flex;align-items:center;gap:6px}
+.row2{display:flex;gap:10px}.row2 .field{flex:1;min-width:0}
+.field input::placeholder,.field textarea::placeholder{color:var(--mut);font-weight:500}
+.sub2{font-size:12px;color:var(--mut);margin:-2px 4px 10px}
+.qh{display:flex;gap:10px;padding:0 14px 12px}.qh .field{flex:1;margin:0}
 .hint{background:var(--sur3);color:var(--cyan);border-radius:12px;padding:9px 12px;font-size:12.5px;line-height:1.4;margin:0 0 12px}
 .lbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);font-weight:600;margin:16px 4px 8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .lbl button{font-style:normal;color:var(--acc);text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600}
@@ -155,7 +160,8 @@ a{color:inherit;text-decoration:none}
   <div class="lbl"><span>Как присылать</span></div>
   <div class="grp">
     <div class="it"><div class="ic">⚡</div><div class="t"><b>Сразу</b><span>каждая новая поездка</span></div><span class="ok">✓</span></div>
-    <button class="it" id="n-quiet"><div class="ic">🌙</div><div class="t"><b>Тихие часы</b><span>23:00 – 07:00 без звука</span></div><div class="sw"></div></button>
+    <button class="it" id="n-quiet"><div class="ic">🌙</div><div class="t"><b>Тихие часы</b><span id="n-quiet-sub">23:00 – 07:00 без звука</span></div><div class="sw"></div></button>
+    <div class="qh" id="n-quiet-times"><div class="field"><label>С</label><input type="time" id="n-qf" value="23:00"></div><div class="field"><label>До</label><input type="time" id="n-qt" value="07:00"></div></div>
     <div class="it"><div class="ic">🚫</div><div class="t"><b>Без перевозчиков</b><span>только частные водители и пассажиры</span></div><span class="ok">✓</span></div>
   </div>
 </section>
@@ -163,13 +169,28 @@ a{color:inherit;text-decoration:none}
 <!-- ============ ПРОФИЛЬ ============ -->
 <section class="view" id="v-profile">
   <div class="hdr"><div class="logo">🚕</div><div class="t"><b id="p-name">Профиль</b><span>Попутчики · Молдова · ПМР · UA · EU</span></div></div>
-  <div id="p-access"></div>
   <div class="lbl"><span>Я сейчас</span></div>
   <div class="grp">
-    <button class="it" data-role="passenger"><div class="ic">🙋</div><div class="t"><b>Пассажир</b><span>ищу машину — бесплатно</span></div><span class="ok"></span></button>
-    <button class="it" data-role="driver"><div class="ic">🚗</div><div class="t"><b>Водитель</b><span>ищу пассажиров — бесплатно</span></div><span class="ok"></span></button>
+    <button class="it" data-role="passenger"><div class="ic">🙋</div><div class="t"><b>Пассажир</b><span>ищу машину</span></div><span class="ok"></span></button>
+    <button class="it" data-role="driver"><div class="ic">🚗</div><div class="t"><b>Водитель</b><span>ищу пассажиров</span></div><span class="ok"></span></button>
   </div>
-  <div class="lbl"><span>Наши группы</span></div>
+  <div class="lbl"><span>Мои данные для заявок</span></div>
+  <p class="sub2">Заполните один раз — при «Разместить» всё подставится само</p>
+  <div class="field"><label>Имя</label><input id="pf-name" placeholder="Как к вам обращаться" autocomplete="name"></div>
+  <div class="field"><label>Телефон</label><input id="pf-phone" type="tel" inputmode="tel" placeholder="0 6xx xx xxx"></div>
+  <div class="lbl"><span>Где со мной связаться</span></div>
+  <div class="chips" id="pf-contacts"><button class="chip tog" data-c="viber">💜 Viber</button><button class="chip tog" data-c="whatsapp">🟢 WhatsApp</button><button class="chip tog" data-c="telegram">✈️ Telegram</button></div>
+  <div id="pf-driver">
+    <div class="lbl"><span>Для водителя</span></div>
+    <div class="field"><label>Машина</label><input id="pf-car" placeholder="Например: серый Opel Zafira"></div>
+    <div class="field"><label>Обычно выезжаю</label><input id="pf-pickup" placeholder="Например: с Балки"></div>
+    <div class="grp" style="margin-bottom:10px"><button class="it" id="pf-parcels"><div class="ic">📦</div><div class="t"><b>Беру посылки</b><span>допишу в каждую заявку</span></div><div class="sw"></div></button></div>
+  </div>
+  <button class="btn y big" id="pf-save" style="width:100%">💾 Сохранить данные</button>
+  <div class="lbl"><span>Так выглядит моя заявка в группах</span></div>
+  <div class="preview" id="pf-preview"></div>
+  <div class="acts"><button class="btn y" id="pf-post">📢 Разместить заявку</button></div>
+  <div class="lbl"><span>Рекомендуемые группы</span></div>
   <div class="grp" id="p-groups"></div>
   <div id="p-admin"></div>
   <div class="lbl"><span>Начать заново</span></div>
@@ -193,11 +214,25 @@ a{color:inherit;text-decoration:none}
     <button class="rf" data-cpick="to"><span class="dot" style="background:var(--dan)"></span><div><div class="l">Куда</div><div class="v" id="c-to"></div></div></button>
     <button class="swap" id="c-swap">⇅</button>
   </div>
+  <div class="row2" style="margin-top:10px"><div class="field"><label id="c-pickup-l">Выезд откуда точнее</label><input id="c-pickup" placeholder="с Балки"></div>
+    <div class="field"><label>Куда точнее</label><input id="c-dropoff" placeholder="на Ботанику"></div></div>
   <div class="chips" id="c-days"></div>
-  <div class="field"><label>Время выезда (необязательно)</label><input type="time" id="c-time"></div>
+  <div class="row2"><div class="field"><label>Время выезда</label><input type="time" id="c-time"></div>
+    <div class="field"><label>До (если примерно)</label><input type="time" id="c-time2"></div></div>
+  <div id="c-driver">
+    <div class="grp" style="margin-bottom:10px">
+      <button class="it" id="c-ret"><div class="ic">🔁</div><div class="t"><b>Обратно в тот же день</b><span>укажу время обратной поездки</span></div><div class="sw"></div></button>
+      <div class="qh" id="c-ret-time" style="display:none"><div class="field"><label>Обратно в</label><input type="time" id="c-rt"></div><div class="field"><label>До</label><input type="time" id="c-rt2"></div></div>
+      <button class="it" id="c-parcels"><div class="ic">📦</div><div class="t"><b>Беру посылки</b></div><div class="sw"></div></button>
+    </div>
+    <div class="field"><label>Цена (необязательно)</label><input id="c-price" placeholder="Например: 100 лей"></div>
+  </div>
   <div class="field" style="display:flex;align-items:center;justify-content:space-between"><div><label id="c-count-l">Сколько человек</label></div><div class="stepper"><button id="c-minus">−</button><b id="c-count">1</b><button id="c-plus">＋</button></div></div>
   <div class="field"><label>Телефон</label><input type="tel" id="c-phone" placeholder="0 6xx xx xxx" inputmode="tel"></div>
-  <div class="field"><label>Комментарий (необязательно)</label><textarea id="c-comment" placeholder="Например: с багажом, беру передачи, от Ботаники"></textarea></div>
+  <div class="chips" id="c-contacts"><button class="chip tog" data-c="viber">💜 Viber</button><button class="chip tog" data-c="whatsapp">🟢 WhatsApp</button><button class="chip tog" data-c="telegram">✈️ Telegram</button></div>
+  <div class="field"><label>Комментарий (необязательно)</label><textarea id="c-comment" placeholder="Например: с багажом, детское кресло, по пути заберу"></textarea></div>
+  <div class="lbl"><span>Так увидят в группах</span></div>
+  <div class="preview" id="c-preview"></div>
   <button class="fab" id="c-publish">📢 Опубликовать</button>
 </section>
 
@@ -502,9 +537,59 @@ $('#sheet').onclick = e => { if (e.target.id === 'sheet') closeSheet() };
 
 // ---------- разместить ----------
 function openCompose(kind) {
+  const p = P();
   S.c.kind = kind; S.c.from = S.from; S.c.to = S.to;
-  $('#c-phone').value = store.get('phone', '');
+  $('#c-phone').value = p.phone || store.get('phone', '');
+  $('#c-pickup').value = kind === 'driver' ? (p.pickup || '') : '';
+  $('#c-parcels .sw').classList.toggle('on', kind === 'driver' && !!p.parcels);
+  $$('#c-contacts [data-c]').forEach(b => b.classList.toggle('on', p[b.dataset.c] ?? (b.dataset.c !== 'telegram')));
   renderCompose(); openOver('o-compose');
+}
+function composeData() {
+  return { kind: S.c.kind, from: S.c.from, to: S.c.to, day: S.c.day, count: S.c.count,
+    pickup: $('#c-pickup').value.trim(), dropoff: $('#c-dropoff').value.trim(), time: $('#c-time').value, time2: $('#c-time2').value,
+    ret: S.c.kind === 'driver' && $('#c-ret .sw').classList.contains('on'), rt: $('#c-rt').value, rt2: $('#c-rt2').value,
+    parcels: S.c.kind === 'driver' && $('#c-parcels .sw').classList.contains('on'), price: S.c.kind === 'driver' ? $('#c-price').value.trim() : '',
+    car: S.c.kind === 'driver' ? (P().car || '') : '', phone: $('#c-phone').value.trim(),
+    contacts: [...$$('#c-contacts [data-c]')].filter(b => b.classList.contains('on')).map(b => b.dataset.c),
+    comment: $('#c-comment').value.trim() };
+}
+function updateComposePreview() { $('#c-preview').textContent = buildText(composeData()) }
+['#c-pickup', '#c-dropoff', '#c-time', '#c-time2', '#c-rt', '#c-rt2', '#c-price', '#c-phone', '#c-comment'].forEach(id => $(id).addEventListener('input', updateComposePreview));
+$('#c-contacts').onclick = e => { const b = e.target.closest('[data-c]'); if (b) { haptic(); b.classList.toggle('on'); updateComposePreview() } };
+$('#c-ret').onclick = () => { haptic(); const on = !$('#c-ret .sw').classList.contains('on'); $('#c-ret .sw').classList.toggle('on', on); $('#c-ret-time').style.display = on ? 'flex' : 'none'; updateComposePreview() };
+$('#c-parcels').onclick = () => { haptic(); $('#c-parcels .sw').classList.toggle('on'); updateComposePreview() };
+
+// Текст заявки для групп: с эмодзи и по строкам, как пишут в группах попутчиков
+function dayWord(day) {
+  const iso = day === 'today' ? isoDay(0) : day === 'tomorrow' ? isoDay(1) : day;
+  const [y, m, d] = iso.split('-'); const wd = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'][new Date(+y, m - 1, +d).getDay()];
+  return (day === 'today' ? 'СЕГОДНЯ ' : day === 'tomorrow' ? 'ЗАВТРА ' : `В ${wd} `) + `${d}.${m}`;
+}
+function buildText(d) {
+  const range = (a, b) => a ? (b ? `${a}–${b}` : a) : '';
+  const contacts = (d.contacts || []).map(c => ({ viber: 'Viber', whatsapp: 'WhatsApp', telegram: 'Telegram' })[c]).join(', ');
+  const L = [];
+  if (d.kind === 'driver') {
+    L.push(`🚗 ЕДУ ${dayWord(d.day)}`);
+    L.push(`${d.from || '…'} ➡️ ${d.to || '…'}${d.dropoff ? ' ' + d.dropoff : ''}`);
+    if (d.pickup) L.push(`📍 Выезд ${d.pickup}`);
+    if (d.time) L.push(`🕐 В ${range(d.time, d.time2)}`);
+    if (d.ret && d.rt) L.push(`🔁 Обратно в ${range(d.rt, d.rt2)}`);
+    L.push(`💺 Есть ${d.count} ${plural(d.count, 'место', 'места', 'мест')} ❗`);
+    if (d.parcels) L.push('📦 Беру посылки');
+    if (d.price) L.push(`💰 ${d.price}`);
+    if (d.car) L.push(`🚘 ${d.car}`);
+  } else {
+    L.push(`🙋 ИЩУ МАШИНУ ${dayWord(d.day)}`);
+    L.push(`${d.from || '…'} ➡️ ${d.to || '…'}${d.dropoff ? ' ' + d.dropoff : ''}`);
+    if (d.pickup) L.push(`📍 Откуда: ${d.pickup}`);
+    if (d.time) L.push(`🕐 ${range(d.time, d.time2)}`);
+    L.push(`👤 ${d.count} ${plural(d.count, 'место', 'места', 'мест')}`);
+  }
+  if (d.comment) L.push(`💬 ${d.comment}`);
+  if (d.phone) L.push(`📲 ${pretty(d.phone)}${contacts ? ` (${contacts})` : ''}`);
+  return L.join('\n');
 }
 function renderCompose() {
   $$('#c-kind button').forEach(b => b.classList.toggle('on', b.dataset.kind === S.c.kind));
@@ -512,12 +597,15 @@ function renderCompose() {
   $('#c-to').textContent = S.c.to || 'Выберите город'; $('#c-to').classList.toggle('ph', !S.c.to);
   $('#c-count').textContent = S.c.count;
   $('#c-count-l').textContent = S.c.kind === 'driver' ? 'Свободных мест' : 'Сколько человек';
-  renderDays();
+  $('#c-driver').style.display = S.c.kind === 'driver' ? '' : 'none';
+  $('#c-pickup-l').textContent = S.c.kind === 'driver' ? 'Выезд откуда точнее' : 'Откуда точнее (район)';
+  $('#c-pickup').placeholder = S.c.kind === 'driver' ? 'с Балки' : 'Ботаника, у Макдональдса';
+  renderDays(); updateComposePreview();
 }
 $('#c-kind').onclick = e => { const b = e.target.closest('button'); if (b) { haptic(); S.c.kind = b.dataset.kind; renderCompose() } };
 $$('[data-cpick]').forEach(b => b.onclick = () => pickPlace(b.dataset.cpick === 'from' ? 'Откуда' : 'Куда', false, v => { S.c[b.dataset.cpick] = v; renderCompose() }));
 $('#c-swap').onclick = () => { [S.c.from, S.c.to] = [S.c.to, S.c.from]; renderCompose() };
-$('#c-days').onclick = e => { const b = e.target.closest('[data-cday]'); if (b) { haptic(); S.c.day = b.dataset.cday; renderDays() } };
+$('#c-days').onclick = e => { const b = e.target.closest('[data-cday]'); if (b) { haptic(); S.c.day = b.dataset.cday; renderDays(); updateComposePreview() } };
 $('#c-minus').onclick = () => { S.c.count = Math.max(1, S.c.count - 1); renderCompose() };
 $('#c-plus').onclick = () => { S.c.count = Math.min(8, S.c.count + 1); renderCompose() };
 $('#c-publish').onclick = async () => {
@@ -527,8 +615,10 @@ $('#c-publish').onclick = async () => {
   store.set('phone', phone);
   const btn = $('#c-publish'); btn.disabled = true; btn.textContent = 'Публикую…';
   try {
-    const r = await api('publish', { method: 'POST', body: { kind: S.c.kind, from: S.c.from, to: S.c.to, day: S.c.day, time: $('#c-time').value, count: S.c.count, phone, comment: $('#c-comment').value } });
-    haptic('heavy'); $('#c-comment').value = ''; $('#c-time').value = '';
+    const d = composeData(), text = buildText(d);
+    const r = await api('publish', { method: 'POST', body: { kind: S.c.kind, from: S.c.from, to: S.c.to, day: S.c.day, time: d.time, count: S.c.count, phone, comment: d.comment, text } });
+    haptic('heavy'); ['#c-comment', '#c-time', '#c-time2', '#c-dropoff', '#c-rt', '#c-rt2', '#c-price'].forEach(id => $(id).value = '');
+    r.item.share = text;
     await loadMe();
     S.overlays = S.overlays.filter(x => x !== 'o-compose');
     openShare(r.item, r.sent);
@@ -544,7 +634,7 @@ function shareText(it) {
   return [head, `🕐 ${[w, n].filter(Boolean).join(' · ')}`, it.comment ? `💬 ${it.comment}` : '', it.phone ? `📞 ${pretty(it.phone)}` : ''].filter(Boolean).join('\n');
 }
 function openShare(it, sent) {
-  const text = shareText(it);
+  const text = it.share || (it.text && it.own !== false && /^[🚗🙋]/u.test(it.text) ? it.text : '') || shareText(it);
   const g = (S.me && S.me.groups) || { viber: [], telegram: [] };
   const who = it.kind === 'driver' ? 'пассажирам' : 'водителям';
   $('#o-share').innerHTML = `
@@ -557,7 +647,7 @@ function openShare(it, sent) {
       <button class="btn big" id="sh-copy">📋 Скопировать текст</button>
     </div>
     <p class="note">Viber откроет «Переслать» с готовым текстом — отметьте сразу несколько групп и нажмите «Отправить».</p>
-    <div class="lbl"><span>Наши группы — вступите, если ещё нет</span></div>
+    <div class="lbl"><span>Рекомендуемые группы — вступите, если ещё нет</span></div>
     <div class="grp">${groupRows(g)}</div>`;
   $('#sh-viber').onclick = () => { haptic('medium'); track('share_viber'); location.href = 'viber://forward?text=' + encodeURIComponent(text) };
   $('#sh-tg').onclick = () => { haptic('medium'); track('share_tg'); openUrl(`https://t.me/share/url?url=${encodeURIComponent('https://t.me/' + ((S.me && S.me.bot) || 'MI_transferBot'))}&text=${encodeURIComponent(text)}`) };
@@ -602,6 +692,9 @@ function renderNotify() {
   const on = me.filters.filter(f => f.enabled).length;
   $('#n-active-sub').textContent = me.active ? (on ? `Маршрутов включено: ${on}` : 'Добавьте маршрут ниже') : 'Сейчас ничего не присылаю';
   $('#n-quiet .sw').classList.toggle('on', me.quiet);
+  $('#n-quiet-sub').textContent = me.quiet ? `${me.quiet_from} – ${me.quiet_to} без звука` : 'Выключены — уведомления всегда со звуком';
+  $('#n-quiet-times').style.display = me.quiet ? 'flex' : 'none';
+  $('#n-qf').value = me.quiet_from; $('#n-qt').value = me.quiet_to;
   $('#n-routes').innerHTML = me.filters.length ? me.filters.map(f => {
     const t = f.title.replace(/^🛣\s*/, '').replace(/\s*\(.*\)$/, '');
     const sub = [f.kind === 'route' ? (f.both && f.from && f.to ? 'туда и обратно' : 'в одну сторону') : 'целый регион', f.want === 'driver' ? 'машины' : 'пассажиры'].join(' · ');
@@ -618,6 +711,12 @@ $('#n-routes').onclick = async e => {
 };
 $('#n-active').onclick = async () => { haptic(); S.me.active = !S.me.active; renderNotify(); await api('settings', { method: 'POST', body: { active: S.me.active } }).catch(e => toast(e.message)) };
 $('#n-quiet').onclick = async () => { haptic(); S.me.quiet = !S.me.quiet; renderNotify(); await api('settings', { method: 'POST', body: { quiet: S.me.quiet } }).catch(e => toast(e.message)) };
+['#n-qf', '#n-qt'].forEach(id => $(id).onchange = async () => {
+  const f = $('#n-qf').value, t = $('#n-qt').value;
+  if (!f || !t) return;
+  S.me.quiet_from = f; S.me.quiet_to = t; renderNotify();
+  try { await api('settings', { method: 'POST', body: { quiet_from: f, quiet_to: t } }); toast(`🌙 Тихо с ${f} до ${t}`) } catch (e) { toast(e.message) }
+});
 $('#n-add').onclick = () => pickPlace('Откуда', true, frm => pickPlace('Куда', true, async to => {
   if (!frm && !to) return toast('Укажите хотя бы один город');
   try { await api('filters', { method: 'POST', body: { from: frm, to, want: S.mode, both: true } }); await loadMe(); renderNotify(); toast('🔔 Маршрут добавлен') } catch (e) { toast(e.message) }
@@ -628,7 +727,7 @@ function renderProfile() {
   const me = S.me; if (!me) return;
   $('#p-name').textContent = me.name || 'Профиль';
   $$('[data-role]').forEach(b => b.querySelector('.ok').textContent = (me.role || 'passenger') === b.dataset.role ? '✓' : '');
-  $('#p-access').innerHTML = `<div class="hero"><b>🎁 Всё бесплатно</b><span>Ищите поездки, размещайте заявки и получайте уведомления — и водителям, и пассажирам.</span></div>`;
+  renderProfileForm();
   $('#p-groups').innerHTML = groupRows(me.groups);
   $('#p-admin').innerHTML = me.is_admin ? `<div class="lbl"><span>Только для вас</span></div><div class="grp"><button class="it" id="p-admin-btn"><div class="ic" style="background:var(--accdim)">📊</div><div class="t"><b>Админ-панель</b><span>Онлайн, пользователи, что ищут</span></div><span class="arr">›</span></button></div>` : '';
   const ab = $('#p-admin-btn'); if (ab) ab.onclick = openAdmin;
@@ -638,6 +737,42 @@ $$('[data-role]').forEach(b => b.onclick = async () => {
   S.mode = b.dataset.role === 'driver' ? 'passenger' : 'driver';
   try { await api('role', { method: 'POST', body: { role: b.dataset.role } }); await loadMe(); renderProfile() } catch (e) { toast(e.message) }
 });
+
+// ---------- мои данные для заявок ----------
+const P = () => (S.me && S.me.profile) || {};
+let pfDraft = null;
+function renderProfileForm() {
+  const p = pfDraft || P();
+  $('#pf-name').value = p.name || (S.me && S.me.name) || '';
+  $('#pf-phone').value = p.phone || store.get('phone', '');
+  $$('#pf-contacts [data-c]').forEach(b => b.classList.toggle('on', p[b.dataset.c] ?? (b.dataset.c !== 'telegram')));
+  $('#pf-car').value = p.car || ''; $('#pf-pickup').value = p.pickup || '';
+  $('#pf-parcels .sw').classList.toggle('on', !!p.parcels);
+  $('#pf-driver').style.display = (S.me.role === 'driver') ? '' : 'none';
+  updatePfPreview();
+}
+function readProfileForm() {
+  const p = { name: $('#pf-name').value.trim(), phone: $('#pf-phone').value.trim(), car: $('#pf-car').value.trim(),
+              pickup: $('#pf-pickup').value.trim(), parcels: $('#pf-parcels .sw').classList.contains('on') };
+  $$('#pf-contacts [data-c]').forEach(b => p[b.dataset.c] = b.classList.contains('on'));
+  return p;
+}
+function updatePfPreview() {
+  const p = readProfileForm();
+  const driver = S.me && S.me.role === 'driver';
+  $('#pf-preview').textContent = buildText({ kind: driver ? 'driver' : 'passenger', from: S.from || 'Тирасполь', to: S.to || 'Кишинёв',
+    day: 'tomorrow', time: '07:00', count: driver ? 3 : 1, pickup: p.pickup, parcels: p.parcels, car: p.car,
+    phone: p.phone || '0 6xx xx xxx', contacts: ['viber', 'whatsapp', 'telegram'].filter(c => p[c]) });
+}
+['#pf-name', '#pf-phone', '#pf-car', '#pf-pickup'].forEach(id => $(id).oninput = () => { pfDraft = readProfileForm(); updatePfPreview() });
+$('#pf-contacts').onclick = e => { const b = e.target.closest('[data-c]'); if (b) { haptic(); b.classList.toggle('on'); pfDraft = readProfileForm(); updatePfPreview() } };
+$('#pf-parcels').onclick = () => { haptic(); $('#pf-parcels .sw').classList.toggle('on'); pfDraft = readProfileForm(); updatePfPreview() };
+$('#pf-save').onclick = async () => {
+  const p = readProfileForm();
+  if (!p.phone) { $('#pf-phone').focus(); return toast('Укажите телефон') }
+  try { const r = await api('profile', { method: 'POST', body: p }); S.me.profile = r.profile; pfDraft = null; store.set('phone', p.phone); haptic('heavy'); toast('✅ Данные сохранены') } catch (e) { toast(e.message) }
+};
+$('#pf-post').onclick = () => { haptic(); openCompose(S.me.role === 'driver' ? 'driver' : 'passenger') };
 
 $('#p-reset').onclick = () => {
   const go = async () => {
@@ -652,7 +787,7 @@ $('#p-reset').onclick = () => {
 // ---------- админ-панель ----------
 const EV = { open: '📱 открыл Mini App', start: '▶️ /start в боте', search: '🔎 искал', publish: '📢 разместил', route_add: '🔔 сохранил маршрут',
              call: '📞 позвонил', viber: '💬 Viber', write: '✉️ написал', message: '💬 открыл сообщение', group: '💜 открыл группу Viber',
-             join: '➕ вступить в группу', whatsapp: '🟢 WhatsApp', tgphone: '✈️ Telegram по номеру', copy: '📋 скопировал номер', detail: '👁 смотрел поездку', share_viber: '💜 отправил в Viber-группы', share_tg: '✈️ отправил в Telegram' };
+             join: '➕ вступить в группу', whatsapp: '🟢 WhatsApp', tgphone: '✈️ Telegram по номеру', copy: '📋 скопировал номер', detail: '👁 смотрел поездку', share_viber: '💜 отправил в Viber-группы', profile: '👤 сохранил профиль', share_tg: '✈️ отправил в Telegram' };
 async function openAdmin() {
   $('#o-admin').innerHTML = '<div class="skel"></div><div class="skel"></div>';
   openOver('o-admin');
@@ -689,6 +824,8 @@ async function openAdmin() {
     <div class="grp">${a.routes.length ? a.routes.map(r => `<div class="it"><div class="ic">🛣</div><div class="t"><b>${esc(rt(r))}</b><span>${r.people} чел. · в среднем найдено ${r.found ?? 0}</span></div><b>${r.n}</b></div>`).join('') : '<div class="it"><div class="t"><span>Пока нет поисков</span></div></div>'}</div>
     <div class="lbl"><span>Ищут, но ничего нет</span></div>
     <div class="grp">${a.empty.length ? a.empty.map(r => `<div class="it"><div class="ic" style="background:var(--danbg)">🤷</div><div class="t"><b>${esc(rt(r))}</b></div><b>${r.n}</b></div>`).join('') : '<div class="it"><div class="t"><span>Пусто — всё находят</span></div></div>'}</div>
+    <div class="lbl"><span>Зарегистрированные (${(a.registered || []).length})</span></div>
+    <div class="grp">${(a.registered || []).length ? a.registered.map(r => `<div class="it"><div class="ic">${r.role === 'driver' ? '🚗' : '🙋'}</div><div class="t"><b>${esc(r.name || '—')} · ${esc(r.phone || '')}</b><span>${r.username ? '@' + esc(r.username) + ' · ' : ''}${[r.viber && 'Viber', r.whatsapp && 'WhatsApp', r.telegram && 'Telegram'].filter(Boolean).join(', ')}${r.car ? ' · 🚘 ' + esc(r.car) : ''} · заявок: ${r.posts}</span></div><span class="arr" style="font-size:12px">${new Date(r.at * 1000).toLocaleDateString('ru-RU')}</span></div>`).join('') : '<div class="it"><div class="t"><span>Пока никто не заполнил профиль</span></div></div>'}</div>
     <div class="lbl"><span>Последние действия</span></div>
     <div class="grp">${a.recent.map(r => `<div class="it"><div class="t"><b style="font-weight:500">${EV[r.type] || r.type}${esc(det(r))}</b><span>${when(r.ts)} · ${r.username ? '@' + esc(r.username) : 'без @имени'}</span></div></div>`).join('')}</div>`;
   $('#ad-ref').onclick = () => { haptic(); S.overlays.pop(); openAdmin() };
