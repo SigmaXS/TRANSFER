@@ -1,5 +1,6 @@
 """PostgreSQL: пользователи (водители и пассажиры), фильтры, заявки, антидубли, статистика."""
 import os
+import json
 import time
 from dataclasses import dataclass
 
@@ -39,6 +40,16 @@ ALTER TABLE ride_filters ADD COLUMN IF NOT EXISTS want TEXT DEFAULT 'passenger';
 -- Mini App: маршрут можно выключить, не удаляя; тихие часы (23–07 без звука)
 ALTER TABLE ride_filters ADD COLUMN IF NOT EXISTS enabled BOOLEAN DEFAULT TRUE;
 ALTER TABLE ride_users ADD COLUMN IF NOT EXISTS quiet BOOLEAN DEFAULT FALSE;
+
+-- Что делают люди в боте и Mini App: открыл, искал, разместил, позвонил… — для админ-панели
+CREATE TABLE IF NOT EXISTS ride_events (
+    id BIGSERIAL PRIMARY KEY,
+    ts DOUBLE PRECISION,
+    user_id BIGINT,
+    type TEXT,
+    data JSONB
+);
+CREATE INDEX IF NOT EXISTS ride_events_ts ON ride_events (ts);
 
 -- Кто пользовался ботом до появления ролей и уже настроил фильтры — водитель
 UPDATE ride_users SET role = 'driver'
@@ -196,6 +207,56 @@ class RidesDB:
     async def user_row(self, user_id: int) -> dict | None:
         r = await self.pool.fetchrow("SELECT * FROM ride_users WHERE user_id=$1", user_id)
         return dict(r) if r else None
+
+    async def log_event(self, user_id: int | None, type_: str, data: dict | None = None):
+        await self.pool.execute("INSERT INTO ride_events (ts, user_id, type, data) VALUES ($1,$2,$3,$4::jsonb)",
+                                time.time(), user_id, type_, json.dumps(data or {}, ensure_ascii=False))
+
+    async def admin_stats(self, day_start: float) -> dict:
+        """Цифры для админ-панели. day_start — полночь сегодня по Кишинёву (unix)."""
+        now = time.time()
+        q = self.pool.fetchval
+        users = {
+            "total": await q("SELECT count(*) FROM ride_users"),
+            "new_today": await q("SELECT count(*) FROM ride_users WHERE created_at >= $1", day_start),
+            "today": await q("SELECT count(DISTINCT user_id) FROM ride_events WHERE ts >= $1 AND user_id IS NOT NULL", day_start),
+            "week": await q("SELECT count(DISTINCT user_id) FROM ride_events WHERE ts >= $1 AND user_id IS NOT NULL", now - 7 * DAY),
+            "month": await q("SELECT count(DISTINCT user_id) FROM ride_events WHERE ts >= $1 AND user_id IS NOT NULL", now - 30 * DAY),
+            "with_routes": await q("SELECT count(DISTINCT user_id) FROM ride_filters WHERE COALESCE(enabled, TRUE)"),
+        }
+        types = {r["type"]: r["n"] for r in await self.pool.fetch(
+            "SELECT type, count(*) AS n FROM ride_events WHERE ts >= $1 GROUP BY type", day_start)}
+        notified = await q("SELECT COALESCE(sum((data->>'n')::int), 0) FROM ride_events WHERE type='notify' AND ts >= $1",
+                           day_start)
+        routes = [dict(r) for r in await self.pool.fetch(
+            """SELECT data->>'from' AS frm, data->>'to' AS dst, count(*) AS n, count(DISTINCT user_id) AS people,
+                      round(avg((data->>'found')::int))::int AS found
+                 FROM ride_events WHERE type='search' AND ts >= $1
+                  AND (COALESCE(data->>'from','') <> '' OR COALESCE(data->>'to','') <> '')
+                GROUP BY 1, 2 ORDER BY n DESC LIMIT 12""", now - 7 * DAY)]
+        empty = [dict(r) for r in await self.pool.fetch(
+            """SELECT data->>'from' AS frm, data->>'to' AS dst, count(*) AS n
+                 FROM ride_events WHERE type='search' AND ts >= $1 AND (data->>'found')::int = 0
+                  AND (COALESCE(data->>'from','') <> '' OR COALESCE(data->>'to','') <> '')
+                GROUP BY 1, 2 ORDER BY n DESC LIMIT 8""", now - 7 * DAY)]
+        daily = [dict(r) for r in await self.pool.fetch(
+            """SELECT to_char((to_timestamp(ts) AT TIME ZONE 'Europe/Chisinau')::date, 'DD.MM') AS day,
+                      count(DISTINCT user_id) AS users,
+                      count(*) FILTER (WHERE type='search') AS searches,
+                      count(*) FILTER (WHERE type='publish') AS posts
+                 FROM ride_events WHERE ts >= $1 AND user_id IS NOT NULL
+                GROUP BY (to_timestamp(ts) AT TIME ZONE 'Europe/Chisinau')::date
+                ORDER BY (to_timestamp(ts) AT TIME ZONE 'Europe/Chisinau')::date DESC LIMIT 14""",
+            now - 14 * DAY)]
+        posts = {r["kind"]: r["n"] for r in await self.pool.fetch(
+            "SELECT kind, count(*) AS n FROM ride_posts WHERE active AND expires_at > $1 GROUP BY kind", now)}
+        recent = [dict(r) for r in await self.pool.fetch(
+            """SELECT e.ts, e.type, e.data, u.username FROM ride_events e LEFT JOIN ride_users u USING (user_id)
+                WHERE e.type NOT IN ('notify') ORDER BY e.id DESC LIMIT 25""")]
+        for r in recent:
+            r["data"] = json.loads(r["data"]) if isinstance(r["data"], str) else r["data"]
+        return {"users": users, "types": types, "notified": notified, "routes": routes, "empty": empty,
+                "daily": daily, "live_posts": posts, "recent": recent}
 
     async def get_post(self, post_id: int) -> dict | None:
         r = await self.pool.fetchrow("SELECT * FROM ride_posts WHERE id=$1", post_id)

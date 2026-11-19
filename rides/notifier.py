@@ -81,4 +81,9 @@ class Notifier:
                     log.warning("Не отправилось %s: %s", user.user_id, e)
                     break
             await asyncio.sleep(0.04)  # лимит Telegram ~30 сообщений/сек
+        if sent:
+            try:
+                await self.db.log_event(None, "notify", {"n": sent, "kind": post["kind"]})
+            except Exception:  # noqa: BLE001
+                pass
         return sent

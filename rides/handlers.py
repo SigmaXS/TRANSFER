@@ -51,7 +51,11 @@ def fmt_date(ts: float) -> str:
 
 
 async def welcome(msg: Message, rides_db: RidesDB, user) -> None:
-    await rides_db.ensure_user(user.id, user.username, TRIAL_DAYS)
+    _, is_new = await rides_db.ensure_user(user.id, user.username, TRIAL_DAYS)
+    try:
+        await rides_db.log_event(user.id, "start", {"new": is_new})
+    except Exception:  # noqa: BLE001
+        pass
     await msg.answer(WELCOME, reply_markup=app_kb(), parse_mode="HTML")
 
 

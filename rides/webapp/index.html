@@ -44,6 +44,14 @@ a{color:inherit;text-decoration:none}
 .more span{color:var(--mut);font-weight:500}
 .chip i{font-style:normal;opacity:.7;margin-left:4px;font-weight:600}
 .over{transition:transform .2s ease}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:var(--sur);border:1px solid var(--line);border-radius:18px;padding:12px 14px}
+.tile .n{font-size:26px;font-weight:800;line-height:1.1}.tile .n small{font-size:12px;color:var(--ok);font-weight:600;margin-left:4px}
+.tile .l{font-size:12px;color:var(--mut);margin-top:3px}
+.tile.live .n{color:var(--ok)}
+.bar{height:8px;border-radius:6px;background:var(--acc);min-width:3px}
+.drow{display:grid;grid-template-columns:44px 1fr 34px 34px;gap:8px;align-items:center;padding:7px 14px;font-size:12.5px}
+.drow+.drow{border-top:1px solid var(--line)}.drow span{color:var(--mut);text-align:right}
 .hint{background:var(--sur3);color:var(--cyan);border-radius:12px;padding:9px 12px;font-size:12.5px;line-height:1.4;margin:0 0 12px}
 .lbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);font-weight:600;margin:16px 4px 8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .lbl button{font-style:normal;color:var(--acc);text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600}
@@ -161,11 +169,15 @@ a{color:inherit;text-decoration:none}
   </div>
   <div class="lbl"><span>Наши группы</span></div>
   <div class="grp" id="p-groups"></div>
+  <div id="p-admin"></div>
   <div class="lbl"><span>Начать заново</span></div>
   <div class="grp"><button class="it" id="p-reset"><div class="ic" style="background:var(--danbg)">🔄</div><div class="t"><b>Сбросить всё</b><span>Удалить маршруты уведомлений и выбранный маршрут</span></div><span class="arr">›</span></button></div>
   <div class="lbl"><span>Как это работает</span></div>
   <div class="card" style="font-size:13px;color:var(--tx2);line-height:1.5">Собираю поездки из групп попутчиков Viber и Telegram. Перевозчиков и рекламу убираю — остаются частные водители и пассажиры. Нашли поездку — звоните напрямую, о цене и месте встречи договаривайтесь с водителем.</div>
 </section>
+
+<!-- ============ АДМИН-ПАНЕЛЬ ============ -->
+<section class="over" id="o-admin"></section>
 
 <!-- ============ КАРТОЧКА ============ -->
 <section class="over" id="o-detail"></section>
@@ -303,6 +315,9 @@ document.addEventListener('click', e => {
   if (!a) return;
   e.stopPropagation(); e.preventDefault(); haptic();
   const act = a.dataset.act;
+  const u = a.dataset.url || '';
+  track({ call: 'call', viber: 'viber', tg: 'write', copy: 'copy',
+          url: /invite\.viber/.test(u) ? 'group' : /t\.me\/(c\/)?[^/]+\/\d+$/.test(u) ? 'message' : 'join' }[act], { url: u.slice(0, 80) });
   if (act === 'call') location.href = 'tel:' + intl(a.dataset.ph);
   else if (act === 'viber') location.href = 'viber://chat?number=' + encodeURIComponent(intl(a.dataset.ph));
   else if (act === 'copy') copy(pretty(a.dataset.ph), 'Номер скопирован');
@@ -359,8 +374,12 @@ $('#save-route').onclick = async () => {
 $('#fab').onclick = () => openCompose(S.mode === 'driver' ? 'passenger' : 'driver');
 
 // ---------- карточка поездки ----------
+function track(type, data) { if (type) api('ev', { method: 'POST', body: { type, data: data || {} } }).catch(() => {}) }
+setInterval(() => { if (document.visibilityState === 'visible') track('ping') }, 60000);   // «онлайн» в админке
+
 function openDetail(it) {
   if (!it) return;
+  track('detail', { id: it.id, route: routeOf(it) });
   const isCar = it.kind === 'driver';
   const sub = [it.when, isCar && it.seats ? `${it.seats} ${plural(it.seats, 'свободное место', 'свободных места', 'свободных мест')}` : '', !isCar && it.people ? `${it.people} чел.` : ''].filter(Boolean).join(' · ');
   const following = S.me && S.me.filters.some(f => f.want === it.kind && f.from === it.from && f.to === it.to && f.enabled);
@@ -533,8 +552,8 @@ function openShare(it, sent) {
     <p class="note">Viber откроет «Переслать» с готовым текстом — отметьте сразу несколько групп и нажмите «Отправить».</p>
     <div class="lbl"><span>Наши группы — вступите, если ещё нет</span></div>
     <div class="grp">${groupRows(g)}</div>`;
-  $('#sh-viber').onclick = () => { haptic('medium'); location.href = 'viber://forward?text=' + encodeURIComponent(text) };
-  $('#sh-tg').onclick = () => { haptic('medium'); openUrl(`https://t.me/share/url?url=${encodeURIComponent('https://t.me/' + ((S.me && S.me.bot) || 'MI_transferBot'))}&text=${encodeURIComponent(text)}`) };
+  $('#sh-viber').onclick = () => { haptic('medium'); track('share_viber'); location.href = 'viber://forward?text=' + encodeURIComponent(text) };
+  $('#sh-tg').onclick = () => { haptic('medium'); track('share_tg'); openUrl(`https://t.me/share/url?url=${encodeURIComponent('https://t.me/' + ((S.me && S.me.bot) || 'MI_transferBot'))}&text=${encodeURIComponent(text)}`) };
   $('#sh-copy').onclick = () => copy(text, 'Текст скопирован');
   openOver('o-share');
 }
@@ -604,6 +623,8 @@ function renderProfile() {
   $$('[data-role]').forEach(b => b.querySelector('.ok').textContent = (me.role || 'passenger') === b.dataset.role ? '✓' : '');
   $('#p-access').innerHTML = `<div class="hero"><b>🎁 Всё бесплатно</b><span>Ищите поездки, размещайте заявки и получайте уведомления — и водителям, и пассажирам.</span></div>`;
   $('#p-groups').innerHTML = groupRows(me.groups);
+  $('#p-admin').innerHTML = me.is_admin ? `<div class="lbl"><span>Только для вас</span></div><div class="grp"><button class="it" id="p-admin-btn"><div class="ic" style="background:var(--accdim)">📊</div><div class="t"><b>Админ-панель</b><span>Онлайн, пользователи, что ищут</span></div><span class="arr">›</span></button></div>` : '';
+  const ab = $('#p-admin-btn'); if (ab) ab.onclick = openAdmin;
 }
 $$('[data-role]').forEach(b => b.onclick = async () => {
   haptic(); S.me.role = b.dataset.role; renderProfile();
@@ -620,6 +641,51 @@ $('#p-reset').onclick = () => {
   };
   if (tg && tg.showConfirm) tg.showConfirm('Сбросить всё? Маршруты уведомлений удалятся.', ok => ok && go()); else go();
 };
+
+// ---------- админ-панель ----------
+const EV = { open: '📱 открыл Mini App', start: '▶️ /start в боте', search: '🔎 искал', publish: '📢 разместил', route_add: '🔔 сохранил маршрут',
+             call: '📞 позвонил', viber: '💬 Viber', write: '✉️ написал', message: '💬 открыл сообщение', group: '💜 открыл группу Viber',
+             join: '➕ вступить в группу', copy: '📋 скопировал номер', detail: '👁 смотрел поездку', share_viber: '💜 отправил в Viber-группы', share_tg: '✈️ отправил в Telegram' };
+async function openAdmin() {
+  $('#o-admin').innerHTML = '<div class="skel"></div><div class="skel"></div>';
+  openOver('o-admin');
+  let a; try { a = await api('admin') } catch (e) { $('#o-admin').innerHTML = `<div class="empty"><b>Не загрузилось</b>${esc(e.message)}</div>`; return }
+  const t = a.types || {}, u = a.users;
+  const row = (ic, label, n) => `<div class="it"><div class="ic">${ic}</div><div class="t"><b>${label}</b></div><b style="font-size:16px">${n || 0}</b></div>`;
+  const rt = r => `${r.frm || 'откуда угодно'} → ${r.dst || 'куда угодно'}`;
+  const maxU = Math.max(1, ...a.daily.map(d => d.users));
+  const when = ts => new Date(ts * 1000).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Chisinau' });
+  const det = r => { const d = r.data || {}; if (r.type === 'search') return ` ${d.from || '…'} → ${d.to || '…'} (найдено ${d.found})`; if (r.type === 'publish' || r.type === 'route_add') return ` ${d.from} → ${d.to}`; if (r.type === 'detail') return ` ${d.route || ''}`; return '' };
+  $('#o-admin').innerHTML = `
+    <div class="hdr"><div class="logo">📊</div><div class="t"><b>Админ-панель</b><span>обновлено ${when(Date.now() / 1000)}</span></div><button class="sq" id="ad-ref">↻</button></div>
+    <div class="tiles">
+      <div class="tile live"><div class="n">${a.online}</div><div class="l">🟢 сейчас в Mini App</div></div>
+      <div class="tile"><div class="n">${u.today}${u.new_today ? `<small>+${u.new_today} новых</small>` : ''}</div><div class="l">👥 заходили сегодня</div></div>
+      <div class="tile"><div class="n">${u.week}</div><div class="l">📅 за 7 дней</div></div>
+      <div class="tile"><div class="n">${u.month}</div><div class="l">🗓 за 30 дней</div></div>
+      <div class="tile"><div class="n">${u.total}</div><div class="l">всего в боте</div></div>
+      <div class="tile"><div class="n">${u.with_routes}</div><div class="l">🔔 с маршрутами уведомлений</div></div>
+      <div class="tile"><div class="n">${a.notified}</div><div class="l">уведомлений разослано сегодня</div></div>
+      <div class="tile"><div class="n">${(a.live_posts.driver || 0)}<small style="color:var(--cyan)">/ ${(a.live_posts.passenger || 0)}</small></div><div class="l">в ленте: машины / пассажиры</div></div>
+    </div>
+    <div class="lbl"><span>Сегодня</span></div>
+    <div class="grp">
+      ${row('📱', 'Открыли Mini App', t.open)}${row('▶️', 'Нажали /start в боте', t.start)}${row('🔎', 'Поисков', t.search)}
+      ${row('📢', 'Разместили объявлений', t.publish)}${row('🔔', 'Сохранили маршрутов', t.route_add)}${row('👁', 'Смотрели поездки', t.detail)}
+      ${row('📞', 'Позвонили', t.call)}${row('💬', 'Написали в Viber', t.viber)}${row('✉️', 'Написали в Telegram', t.write)}
+      ${row('📋', 'Скопировали номер', t.copy)}${row('🔗', 'Открыли сообщение / группу', (t.message || 0) + (t.group || 0) + (t.join || 0))}
+      ${row('📤', 'Отправили заявку в группы', (t.share_viber || 0) + (t.share_tg || 0))}
+    </div>
+    <div class="lbl"><span>По дням</span><span style="text-transform:none;letter-spacing:0">люди · поиски · объявл.</span></div>
+    <div class="grp">${a.daily.length ? a.daily.map(d => `<div class="drow"><b>${d.day}</b><div style="display:flex;align-items:center;gap:6px"><div class="bar" style="width:${Math.round(d.users / maxU * 100)}%"></div><b>${d.users}</b></div><span>${d.searches}</span><span>${d.posts}</span></div>`).join('') : '<div class="it"><div class="t"><span>Данные начнут копиться с сегодняшнего дня</span></div></div>'}</div>
+    <div class="lbl"><span>Что ищут (7 дней)</span></div>
+    <div class="grp">${a.routes.length ? a.routes.map(r => `<div class="it"><div class="ic">🛣</div><div class="t"><b>${esc(rt(r))}</b><span>${r.people} чел. · в среднем найдено ${r.found ?? 0}</span></div><b>${r.n}</b></div>`).join('') : '<div class="it"><div class="t"><span>Пока нет поисков</span></div></div>'}</div>
+    <div class="lbl"><span>Ищут, но ничего нет</span></div>
+    <div class="grp">${a.empty.length ? a.empty.map(r => `<div class="it"><div class="ic" style="background:var(--danbg)">🤷</div><div class="t"><b>${esc(rt(r))}</b></div><b>${r.n}</b></div>`).join('') : '<div class="it"><div class="t"><span>Пусто — всё находят</span></div></div>'}</div>
+    <div class="lbl"><span>Последние действия</span></div>
+    <div class="grp">${a.recent.map(r => `<div class="it"><div class="t"><b style="font-weight:500">${EV[r.type] || r.type}${esc(det(r))}</b><span>${when(r.ts)} · ${r.username ? '@' + esc(r.username) : 'без @имени'}</span></div></div>`).join('')}</div>`;
+  $('#ad-ref').onclick = () => { haptic(); S.overlays.pop(); openAdmin() };
+}
 
 // ---------- свайп назад: провести пальцем слева направо ----------
 (function swipeBack() {

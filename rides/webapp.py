@@ -26,7 +26,7 @@ from .places import PLACES, POPULAR, RO_NAMES, resolve_place
 from .posts import format_post, post_from_bot, post_to_parsed, viber_links
 from .timeparse import TZ, ago
 
-log = logging.getLogger("rides.webapp")
+log_ = logging.getLogger("rides.webapp")
 
 PAGE = Path(__file__).with_name("webapp") / "index.html"
 TOKEN = os.environ.get("BOT_TOKEN", "").strip()
@@ -121,7 +121,17 @@ def _groups() -> dict:
     return {"viber": viber, "telegram": [{"name": n, "url": u} for n, u in TG_GROUPS]}
 
 
+ONLINE: dict[int, float] = {}          # кто сейчас в Mini App: user_id → когда последний раз был запрос
+CLIENT_EVENTS = {"call", "viber", "write", "message", "group", "share_viber", "share_tg", "copy", "detail", "join"}
+
+
 def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
+    async def log(user_id, type_, data=None):
+        try:
+            await db.log_event(user_id, type_, data)
+        except Exception as e:  # noqa: BLE001 — учёт не должен ломать приложение
+            log_.warning("event %s: %s", type_, e)
+
     async def page(_request):
         return web.FileResponse(PAGE, headers={"Cache-Control": "no-cache"})
 
@@ -130,6 +140,7 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
         if not user or not user.get("id"):
             raise web.HTTPUnauthorized(text='{"error":"auth"}', content_type="application/json")
         await db.ensure_user(user["id"], user.get("username"), TRIAL_DAYS)
+        ONLINE[user["id"]] = time.time()
         return user
 
     async def body(request) -> dict:
@@ -140,6 +151,7 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
 
     async def me(request):
         user = await auth(request)
+        await log(user["id"], "open")
         row = await db.user_row(user["id"])
         u = await db.get_user(user["id"])
         filters = [{"id": r["id"], "kind": r["kind"], "from": r["from_place"], "to": r["to_place"],
@@ -151,6 +163,7 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
             "has_access": u.has_access(), "access_until": u.access_until(), "active": u.active,
             "quiet": bool(row.get("quiet")), "payment_text": PAYMENT_TEXT, "filters": filters,
             "groups": _groups(), "bot": BOT_USERNAME, "channel": CHANNEL or None,
+            "is_admin": user["id"] in ADMIN_IDS,
         })
 
     async def places(_request):
@@ -202,6 +215,8 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
                 items.append(_card(p, stale=True))
                 if len(items) >= MIN_RESULTS + 3:
                     break
+        await log(user["id"], "search", {"mode": kind, "from": frm or "", "to": to or "", "day": day,
+                                          "found": sum(1 for it in items if not it["stale"])})
         return web.json_response({"total": len(items), "items": items[:80], "from": frm, "to": to, "counts": counts})
 
     async def one(request):
@@ -226,6 +241,7 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
                 await db.set_filter_enabled(user["id"], r["id"], True)
                 return web.json_response({"ok": True, "id": r["id"]})
         await db.add_filter(user["id"], Filter(ROUTE, frm, to, both_ways=bool(b.get("both", True))), want)
+        await log(user["id"], "route_add", {"from": frm or "", "to": to or "", "want": want})
         return web.json_response({"ok": True})
 
     async def edit_filter(request):
@@ -274,18 +290,38 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
             kind=kind, from_place=frm, to_place=to, when=when, date=date_str, time_str=time_str, count=count,
             comment=comment, user_id=user["id"], username=user.get("username"), name=name, phone=phone))
         sent = await notifier.dispatch(post)
+        await log(user["id"], "publish", {"kind": kind, "from": frm, "to": to, "sent": sent})
         if CHANNEL:
             try:
                 await notifier.bot.send_message(CHANNEL, format_post(post), parse_mode="HTML",
                                                 disable_web_page_preview=True)
             except Exception as e:  # noqa: BLE001
-                log.warning("Канал %s: %s", CHANNEL, e)
+                log_.warning("Канал %s: %s", CHANNEL, e)
         # Автор сам получит встречные объявления по этому маршруту
         want = DRIVER if kind == PASSENGER else PASSENGER
         if not any(r["want"] == want and r["from_place"] == frm and r["to_place"] == to
                    for r in await db.filter_rows(user["id"])):
             await db.add_filter(user["id"], Filter(ROUTE, frm, to, both_ways=False), want)
         return web.json_response({"ok": True, "sent": sent, "item": _card(post)})
+
+    async def event(request):
+        """События из страницы: позвонил, написал, открыл сообщение, отправил в группы…"""
+        user = await auth(request)
+        b = await body(request)
+        if b.get("type") in CLIENT_EVENTS:
+            data = {k: str(v)[:80] for k, v in (b.get("data") or {}).items()}
+            await log(user["id"], b["type"], data)
+        return web.json_response({"ok": True})
+
+    async def admin(request):
+        user = await auth(request)
+        if user["id"] not in ADMIN_IDS:
+            raise web.HTTPForbidden(text='{"error":"admin only"}', content_type="application/json")
+        now = time.time()
+        day_start = datetime.combine(datetime.now(TZ).date(), datetime.min.time(), TZ).timestamp()
+        stats = await db.admin_stats(day_start)
+        stats["online"] = sum(1 for t in ONLINE.values() if now - t < 180)
+        return web.json_response(stats)
 
     async def reset(request):
         """«Сбросить всё»: удалить все маршруты уведомлений, включить уведомления, выключить тихие часы."""
@@ -333,5 +369,7 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
     app.router.add_post("/app/api/publish", publish)
     app.router.add_get("/app/api/my", my)
     app.router.add_post("/app/api/reset", reset)
+    app.router.add_post("/app/api/ev", event)
+    app.router.add_get("/app/api/admin", admin)
     app.router.add_route("DELETE", "/app/api/my/{id:\\d+}", close)
     app.router.add_post("/app/api/report", report)
