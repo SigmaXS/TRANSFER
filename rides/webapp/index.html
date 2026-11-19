@@ -309,7 +309,15 @@ function dayChips(withAll) {
 function renderDays() {
   const order = dayChips(true); order.unshift(order.pop());   // «Все дни» первым
   $('#days').innerHTML = order.map(([k, t]) => { const n = S.counts[k]; return `<button class="chip ${S.day === k ? 'on' : ''}" data-day="${k}">${t}${n != null ? `<i>${n}</i>` : ''}</button>` }).join('');
-  $('#c-days').innerHTML = dayChips(false).map(([k, t]) => `<button class="chip ${S.c.day === k ? 'on' : ''}" data-cday="${k}">${t}</button>`).join('');
+  // «Разместить»: ближайшие дни + своя дата из календаря
+  const cd = dayChips(false);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(S.c.day) && !cd.some(([k]) => k === S.c.day)) {
+    const [y, m, d] = S.c.day.split('-'); cd.push([S.c.day, `${WD[new Date(+y, m - 1, +d).getDay()]} ${d}.${m}`]);
+  }
+  $('#c-days').innerHTML = cd.map(([k, t]) => `<button class="chip ${S.c.day === k ? 'on' : ''}" data-cday="${k}">${t}</button>`).join('')
+    + `<label class="chip" style="position:relative;overflow:hidden">📅 Другая дата<input type="date" id="c-date" min="${isoDay(0)}" max="${isoDay(60)}"
+         style="position:absolute;inset:0;opacity:0;width:100%;height:100%"></label>`;
+  $('#c-date').onchange = e => { if (e.target.value) { haptic(); S.c.day = e.target.value; renderDays(); updateComposePreview() } };
 }
 
 // ---------- карточки ----------
