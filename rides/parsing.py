@@ -63,8 +63,21 @@ _PHONE_RE = re.compile(r"(?:\+?373|\b0)[\s-]?\d{2}[\s-]?\d{2,3}[\s-]?\d{2,3}[\s-
 _PEOPLE_RE = re.compile(r"(\d)\s*(?:чел|человек|пассаж|pers|persoan|oameni)")
 _SEATS_RE = re.compile(r"(\d)\s*(?:мест|места|место|locur|loc\b)")
 # «Нужно 1 место», «нужно место», «ищу 2 места», «caut 1 loc» — это пассажир, а не свободные места
+# Между «нужно» и «места» бывают слова: «Нужно сегодня из Кишинева в Тирасполь 2 места», «нужно одно место»
+# (но не «нужны попутчики, есть 3 места» — это водитель).
 _NEED_SEATS_RE = re.compile(
-    r"(?:нужн\w*|надо|ищу|требуется|caut|am nevoie de)\s+(?:(\d)\s*)?(?:мест|locur|loc\b)")
+    r"(?:нужн\w*|надо|ищу|требуется|caut|am nevoie de)\s+"
+    r"(?:(?!есть\b|попутчик|пассажир|pasager)[^\s.!?]+\s+){0,6}?"
+    r"(?:(\d|одн\w*|дв[ае]\b|три\b|четыре\b|un\b|una\b|doua\b)\s*)?(?:мест|locur|loc\b)")
+_WORD_NUM = {"одн": 1, "дв": 2, "три": 3, "четыре": 4, "un": 1, "una": 1, "doua": 2}
+
+
+def _num(token: str | None) -> int:
+    if not token:
+        return 1
+    if token.isdigit():
+        return int(token)
+    return next((v for k, v in _WORD_NUM.items() if token.startswith(k)), 1)
 
 
 @dataclass
@@ -202,7 +215,7 @@ def parse_message(text: str) -> Parsed:
         p.people = int(m.group(1))
     need = _NEED_SEATS_RE.search(norm)
     if need:
-        p.people = p.people or int(need.group(1) or 1)
+        p.people = p.people or _num(need.group(1))
     else:
         m = _SEATS_RE.search(norm)
         if m:

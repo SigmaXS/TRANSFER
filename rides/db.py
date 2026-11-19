@@ -325,6 +325,21 @@ class RidesDB:
             " ORDER BY ts DESC LIMIT $4", kind, now, now - days * DAY, limit)
         return [dict(r) for r in rows]
 
+    async def reparse_live(self) -> int:
+        """После правки разбора: заново определить «ищет машину / свободная машина» у актуальных объявлений из групп."""
+        from .parsing import parse_message
+        rows = await self.pool.fetch(
+            "SELECT id, text, kind, people, seats FROM ride_posts WHERE active AND source='group' AND expires_at > $1"
+            " AND text IS NOT NULL", time.time())
+        changed = 0
+        for r in rows:
+            p = parse_message(r["text"])
+            if p.kind and (p.kind, p.people, p.seats) != (r["kind"], r["people"], r["seats"]):
+                await self.pool.execute("UPDATE ride_posts SET kind=$2, people=$3, seats=$4 WHERE id=$1",
+                                        r["id"], p.kind, p.people, p.seats)
+                changed += 1
+        return changed
+
     async def cleanup(self):
         await self.pool.execute("DELETE FROM ride_posts WHERE expires_at < $1",
                                 time.time() - max(KEEP_DAYS, 1) * DAY)

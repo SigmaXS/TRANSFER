@@ -72,6 +72,10 @@ async def main():
     pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=5)
     rides_db = RidesDB(pool)
     await rides_db.init()
+    try:  # разбор объявлений мог измениться — поправить уже сохранённые
+        log.info("Переразобрано объявлений: %s", await rides_db.reparse_live())
+    except Exception as e:  # noqa: BLE001
+        log.warning("reparse: %s", e)
     print("База данных успешно инициализирована!")
 
     notifier = Notifier(bot, rides_db)
