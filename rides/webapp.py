@@ -153,10 +153,6 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
         user = await auth(request)
         q = request.query
         kind = PASSENGER if q.get("kind") == "passenger" else DRIVER
-        if kind == PASSENGER:   # заявки пассажиров — водителям с доступом
-            u = await db.get_user(user["id"])
-            if not u.has_access():
-                return web.json_response({"locked": True, "payment_text": PAYMENT_TEXT, "items": [], "total": 0})
         frm, to = _spec(q.get("from")), _spec(q.get("to"))
         f = Filter(ROUTE, frm, to, both_ways=True) if (frm or to) else None
         day = q.get("day", "all")

@@ -158,13 +158,11 @@ class RidesDB:
         """Кому рассылать объявление вида want: активные пользователи с фильтрами этого вида.
         Заявки пассажиров (want='passenger') получают только водители с действующим доступом;
         свободные машины пассажирам — бесплатно."""
-        now = time.time()
         rows = await self.pool.fetch(
             """SELECT f.*, u.active, u.role, u.trial_until, u.paid_until
                  FROM ride_filters f JOIN ride_users u USING (user_id)
                 WHERE u.active AND f.want = $1 AND COALESCE(f.enabled, TRUE)
-                  AND ($1 <> 'passenger' OR GREATEST(u.trial_until, u.paid_until) > $2)
-                ORDER BY f.id""", want, now)
+                ORDER BY f.id""", want)  # пока всё бесплатно: доступ водителя не проверяем
         by_user: dict[int, tuple[RideUser, list[Filter]]] = {}
         for r in rows:
             by_user.setdefault(r["user_id"], (_user(r), []))[1].append(_filter(r))

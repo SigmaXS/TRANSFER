@@ -149,7 +149,7 @@ a{color:inherit;text-decoration:none}
   <div class="lbl"><span>Я сейчас</span></div>
   <div class="grp">
     <button class="it" data-role="passenger"><div class="ic">🙋</div><div class="t"><b>Пассажир</b><span>ищу машину — бесплатно</span></div><span class="ok"></span></button>
-    <button class="it" data-role="driver"><div class="ic">🚗</div><div class="t"><b>Водитель</b><span>ищу пассажиров</span></div><span class="ok"></span></button>
+    <button class="it" data-role="driver"><div class="ic">🚗</div><div class="t"><b>Водитель</b><span>ищу пассажиров — бесплатно</span></div><span class="ok"></span></button>
   </div>
   <div class="lbl"><span>Наши группы</span></div>
   <div class="grp" id="p-groups"></div>
@@ -587,11 +587,7 @@ function renderProfile() {
   const me = S.me; if (!me) return;
   $('#p-name').textContent = me.name || 'Профиль';
   $$('[data-role]').forEach(b => b.querySelector('.ok').textContent = (me.role || 'passenger') === b.dataset.role ? '✓' : '');
-  const until = new Date(me.access_until * 1000).toLocaleDateString('ru-RU');
-  $('#p-access').innerHTML = me.role === 'driver'
-    ? (me.has_access ? `<div class="hero"><b>✅ Доступ водителя до ${until}</b><span>Заявки пассажиров приходят по вашим маршрутам.</span></div>`
-                     : `<div class="hero" style="border-color:#5a2222;background:linear-gradient(135deg,#3A1717,#121F32 70%)"><b>⛔️ Доступ закончился</b><span>${esc(me.payment_text)}</span></div>`)
-    : `<div class="hero"><b>🙋 Для пассажиров бесплатно</b><span>Ищите машины, размещайте заявки и получайте уведомления.</span></div>`;
+  $('#p-access').innerHTML = `<div class="hero"><b>🎁 Всё бесплатно</b><span>Ищите поездки, размещайте заявки и получайте уведомления — и водителям, и пассажирам.</span></div>`;
   $('#p-groups').innerHTML = groupRows(me.groups);
 }
 $$('[data-role]').forEach(b => b.onclick = async () => {
