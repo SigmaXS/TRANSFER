@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Попутчики — связаться</title>
+<style>
+:root{color-scheme:dark}
+body{margin:0;background:#090F1C;color:#F4F4F6;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px max(16px,env(safe-area-inset-left,0px))}
+.box{width:100%;max-width:380px;text-align:center}
+.logo{width:56px;height:56px;border-radius:16px;background:#FFCC00;display:grid;place-items:center;font-size:30px;margin:0 auto 14px}
+.num{font-size:26px;font-weight:800;letter-spacing:.02em;margin:6px 0 18px}
+p{color:#98A8BA;font-size:14px;line-height:1.5;margin:0 0 18px}
+a{display:block;text-decoration:none;font-weight:800;font-size:17px;padding:16px;border-radius:16px;margin-bottom:10px}
+.call{background:#FFCC00;color:#141414}.viber{background:#7360F2;color:#fff}.wa{background:#25D366;color:#06290f}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="logo">🚕</div>
+  <div id="what">Звоню…</div>
+  <div class="num" id="num"></div>
+  <p id="hint">Если звонок не начался сам — нажмите кнопку ниже.</p>
+  <a class="call" id="b-call">📞 Позвонить</a>
+  <a class="viber" id="b-viber">💬 Написать в Viber</a>
+  <a class="wa" id="b-wa">🟢 Написать в WhatsApp</a>
+</div>
+<script>
+// Страница для звонка из Mini App: внутри Telegram ссылки tel: и viber: не открываются,
+// поэтому Mini App открывает эту страницу во внешнем браузере, а она уже запускает звонок или Viber.
+const q = new URLSearchParams(location.search);
+const n = (q.get('n') || '').replace(/[^\d+]/g, '').slice(0, 16);
+const t = q.get('t') === 'viber' ? 'viber' : 'tel';
+const digits = n.replace(/\D/g, '');
+document.getElementById('num').textContent = n;
+document.getElementById('b-call').href = 'tel:' + n;
+document.getElementById('b-viber').href = 'viber://chat?number=' + encodeURIComponent(n);
+document.getElementById('b-wa').href = 'https://wa.me/' + digits;
+document.getElementById('what').textContent = t === 'viber' ? 'Открываю Viber…' : 'Звоню…';
+if (n) setTimeout(() => { location.href = t === 'viber' ? 'viber://chat?number=' + encodeURIComponent(n) : 'tel:' + n }, 150);
+</script>
+</body>
+</html>

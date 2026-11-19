@@ -29,6 +29,7 @@ from .timeparse import TZ, ago
 log_ = logging.getLogger("rides.webapp")
 
 PAGE = Path(__file__).with_name("webapp") / "index.html"
+GO_PAGE = Path(__file__).with_name("webapp") / "go.html"     # звонок / Viber во внешнем браузере
 TOKEN = os.environ.get("BOT_TOKEN", "").strip()
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "MI_transferBot").lstrip("@")
 CHANNEL = os.environ.get("RIDES_CHANNEL", "").strip()          # свой канал/группа: бот выкладывает туда заявки
@@ -122,7 +123,8 @@ def _groups() -> dict:
 
 
 ONLINE: dict[int, float] = {}          # кто сейчас в Mini App: user_id → когда последний раз был запрос
-CLIENT_EVENTS = {"call", "viber", "write", "message", "group", "share_viber", "share_tg", "copy", "detail", "join"}
+CLIENT_EVENTS = {"call", "viber", "write", "message", "group", "share_viber", "share_tg", "copy", "detail", "join",
+                 "whatsapp", "tgphone"}
 
 
 def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
@@ -355,6 +357,10 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
                     pass
         return web.json_response({"ok": True})
 
+    async def go(_request):
+        return web.FileResponse(GO_PAGE, headers={"Cache-Control": "no-cache"})
+
+    app.router.add_get("/app/go", go)
     app.router.add_get("/app", page)
     app.router.add_get("/app/", page)
     app.router.add_get("/app/api/me", me)

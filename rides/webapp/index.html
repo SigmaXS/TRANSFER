@@ -70,6 +70,8 @@ a{color:inherit;text-decoration:none}
 .btn.y{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
 .btn.g{background:var(--okbg);color:var(--ok);border-color:#1f4a31}
 .btn.v{background:#2a2550;color:#c9c1ff;border-color:#3d3575}
+.btn.wa{background:#0f3a22;color:#5ee08f;border-color:#1d5c36}
+.btn.tgb{background:#1d3a55;color:#9fd2ff;border-color:#2b5278}
 .btn.r{background:var(--danbg);color:#fca5a5;border-color:#5a2222}
 .btn.big{padding:14px;font-size:14px}
 .fab{position:fixed;left:14px;right:14px;bottom:calc(76px + env(safe-area-inset-bottom,0px));background:var(--acc);color:var(--onacc);font-weight:800;text-align:center;padding:14px;border-radius:16px;font-size:15px;box-shadow:0 8px 24px #000a;z-index:5}
@@ -316,10 +318,14 @@ document.addEventListener('click', e => {
   e.stopPropagation(); e.preventDefault(); haptic();
   const act = a.dataset.act;
   const u = a.dataset.url || '';
-  track({ call: 'call', viber: 'viber', tg: 'write', copy: 'copy',
+  track({ call: 'call', viber: 'viber', tg: 'write', copy: 'copy', wa: 'whatsapp', tgph: 'tgphone',
           url: /invite\.viber/.test(u) ? 'group' : /t\.me\/(c\/)?[^/]+\/\d+$/.test(u) ? 'message' : 'join' }[act], { url: u.slice(0, 80) });
-  if (act === 'call') location.href = 'tel:' + intl(a.dataset.ph);
-  else if (act === 'viber') location.href = 'viber://chat?number=' + encodeURIComponent(intl(a.dataset.ph));
+  if (act === 'call' || act === 'viber') {
+    const go = `${location.origin}/app/go?t=${act === 'viber' ? 'viber' : 'tel'}&n=${encodeURIComponent(intl(a.dataset.ph))}`;
+    if (tg && tg.openLink) tg.openLink(go); else location.href = go;
+  }
+  else if (act === 'wa') openUrl('https://wa.me/' + intl(a.dataset.ph).replace(/\D/g, ''));
+  else if (act === 'tgph') openUrl('https://t.me/' + intl(a.dataset.ph));
   else if (act === 'copy') copy(pretty(a.dataset.ph), 'Номер скопирован');
   else if (act === 'tg') openUrl('https://t.me/' + a.dataset.u);
   else if (act === 'url') openUrl(a.dataset.url);
@@ -391,7 +397,8 @@ function openDetail(it) {
     <div class="hero"><span class="tag ${it.stale ? 'old' : isCar ? 'car' : 'pas'}">${it.stale ? '🕓 Ездит по этому маршруту' : isCar ? '🚗 Свободная машина' : '🙋 Ищет машину'}</span>
       <div class="big">${esc(routeOf(it))}</div><span>${esc(sub)}</span></div>
     ${it.phone ? `<button class="phonebox" data-act="copy" data-ph="${esc(it.phone)}"><div>${esc(pretty(it.phone))}<small>номер из объявления · нажмите, чтобы скопировать</small></div><span style="font-size:22px">📋</span></button>
-      <div class="acts" style="margin-bottom:12px"><a class="btn y big" data-act="call" data-ph="${esc(it.phone)}">📞 Позвонить</a><a class="btn v big" data-act="viber" data-ph="${esc(it.phone)}">💬 Viber</a></div>`
+      <div class="acts" style="margin-bottom:8px"><a class="btn y big" data-act="call" data-ph="${esc(it.phone)}">📞 Позвонить</a></div>
+      <div class="acts" style="margin-bottom:12px"><a class="btn v" data-act="viber" data-ph="${esc(it.phone)}">💜 Viber</a><a class="btn wa" data-act="wa" data-ph="${esc(it.phone)}">🟢 WhatsApp</a><a class="btn tgb" data-act="tgph" data-ph="${esc(it.phone)}">✈️ Telegram</a></div>`
       : (it.msg_link && !it.telegram) ? '<div style="height:12px"></div>' : `<div class="acts" style="margin:12px 0">${groupBtn(it).replace('class="btn', 'class="btn y big')}</div>`}
     ${it.telegram && it.phone ? `<div class="acts" style="margin-bottom:12px"><a class="btn" data-act="tg" data-u="${esc(it.telegram)}">✉️ Написать в Telegram</a></div>` : ''}
     ${it.msg_link ? `<div class="acts" style="margin-bottom:${it.private ? 8 : 12}px"><a class="btn big${it.phone || it.telegram ? '' : ' y'}" data-act="url" data-url="${esc(it.msg_link)}">💬 Открыть сообщение в группе</a>${it.join ? `<a class="btn big" data-act="url" data-url="${esc(it.join)}" style="flex:.6">➕ Вступить</a>` : ''}</div>
@@ -645,7 +652,7 @@ $('#p-reset').onclick = () => {
 // ---------- админ-панель ----------
 const EV = { open: '📱 открыл Mini App', start: '▶️ /start в боте', search: '🔎 искал', publish: '📢 разместил', route_add: '🔔 сохранил маршрут',
              call: '📞 позвонил', viber: '💬 Viber', write: '✉️ написал', message: '💬 открыл сообщение', group: '💜 открыл группу Viber',
-             join: '➕ вступить в группу', copy: '📋 скопировал номер', detail: '👁 смотрел поездку', share_viber: '💜 отправил в Viber-группы', share_tg: '✈️ отправил в Telegram' };
+             join: '➕ вступить в группу', whatsapp: '🟢 WhatsApp', tgphone: '✈️ Telegram по номеру', copy: '📋 скопировал номер', detail: '👁 смотрел поездку', share_viber: '💜 отправил в Viber-группы', share_tg: '✈️ отправил в Telegram' };
 async function openAdmin() {
   $('#o-admin').innerHTML = '<div class="skel"></div><div class="skel"></div>';
   openOver('o-admin');
@@ -672,7 +679,7 @@ async function openAdmin() {
     <div class="grp">
       ${row('📱', 'Открыли Mini App', t.open)}${row('▶️', 'Нажали /start в боте', t.start)}${row('🔎', 'Поисков', t.search)}
       ${row('📢', 'Разместили объявлений', t.publish)}${row('🔔', 'Сохранили маршрутов', t.route_add)}${row('👁', 'Смотрели поездки', t.detail)}
-      ${row('📞', 'Позвонили', t.call)}${row('💬', 'Написали в Viber', t.viber)}${row('✉️', 'Написали в Telegram', t.write)}
+      ${row('📞', 'Позвонили', t.call)}${row('💜', 'Viber', t.viber)}${row('🟢', 'WhatsApp', t.whatsapp)}${row('✈️', 'Telegram (по @имени и номеру)', (t.write || 0) + (t.tgphone || 0))}
       ${row('📋', 'Скопировали номер', t.copy)}${row('🔗', 'Открыли сообщение / группу', (t.message || 0) + (t.group || 0) + (t.join || 0))}
       ${row('📤', 'Отправили заявку в группы', (t.share_viber || 0) + (t.share_tg || 0))}
     </div>
