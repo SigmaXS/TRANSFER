@@ -327,16 +327,23 @@ class RidesDB:
 
     async def reparse_live(self) -> int:
         """После правки разбора: заново определить «ищет машину / свободная машина» у актуальных объявлений из групп."""
+        from datetime import datetime
         from .parsing import parse_message
+        from .timeparse import TZ, trip_window
         rows = await self.pool.fetch(
-            "SELECT id, text, kind, people, seats FROM ride_posts WHERE active AND source='group' AND expires_at > $1"
-            " AND text IS NOT NULL", time.time())
+            "SELECT id, ts, text, kind, people, seats, trip_at, has_time, when_label FROM ride_posts"
+            " WHERE active AND source='group' AND expires_at > $1 AND text IS NOT NULL", time.time())
         changed = 0
         for r in rows:
             p = parse_message(r["text"])
-            if p.kind and (p.kind, p.people, p.seats) != (r["kind"], r["people"], r["seats"]):
-                await self.pool.execute("UPDATE ride_posts SET kind=$2, people=$3, seats=$4 WHERE id=$1",
-                                        r["id"], p.kind, p.people, p.seats)
+            kind = p.kind or r["kind"]
+            # Время и дата тоже заново: «выезд 9.00», «17.00-17.30», «в течении часа»
+            trip_at, expires_at, has_time = trip_window(p.when, p.date, p.time, datetime.fromtimestamp(r["ts"], TZ))
+            if (kind, p.people, p.seats, has_time, p.when) != (r["kind"], r["people"], r["seats"], r["has_time"], r["when_label"]) \
+                    or abs((r["trip_at"] or 0) - trip_at) > 60:
+                await self.pool.execute(
+                    "UPDATE ride_posts SET kind=$2, people=$3, seats=$4, trip_at=$5, expires_at=$6, has_time=$7, when_label=$8"
+                    " WHERE id=$1", r["id"], kind, p.people, p.seats, trip_at, expires_at, has_time, p.when)
                 changed += 1
         return changed
 
