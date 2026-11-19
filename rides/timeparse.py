@@ -72,9 +72,11 @@ def trip_label(trip_at: float, has_time: bool, when: str | None, now: datetime |
     now = (now or datetime.now(TZ)).astimezone(TZ)
     trip = datetime.fromtimestamp(trip_at, TZ)
     delta = (trip.date() - now.date()).days
-    day = {0: "сегодня", 1: "завтра", 2: "послезавтра"}.get(delta, trip.strftime("%d.%m"))
+    # Не только «завтра»: ещё и день недели с датой — через день слово «завтра» уже обманывает.
+    wd = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"][trip.weekday()]
+    day = {0: "сегодня", 1: f"завтра, {wd} {trip:%d.%m}"}.get(delta, f"{wd} {trip:%d.%m}")
     if has_time:
-        return f"{day} {trip:%H:%M}"
+        return f"{day} · {trip:%H:%M}"
     if when in ("сейчас", "срочно"):
         return "сейчас"
     if delta != 0 or when == "сегодня":
