@@ -28,6 +28,13 @@ def notify_keyboard(post: dict, filter_id: int | None) -> InlineKeyboardMarkup:
     if post.get("id"):
         row.append(InlineKeyboardButton(text="🔎 Открыть", web_app=WebAppInfo(url=f"{WEBAPP_URL}?p={post['id']}")))
     rows = [row] if row else []
+    link = post.get("link") or ""
+    if post.get("source") == "group" and link.startswith("https://t.me/"):
+        rows.append([InlineKeyboardButton(text="💬 Открыть сообщение в группе", url=link)])
+    else:
+        from .posts import viber_group_link
+        if viber := viber_group_link(post.get("chat")):
+            rows.append([InlineKeyboardButton(text="💜 Группа в Viber", url=viber)])
     if filter_id:
         rows.append([InlineKeyboardButton(text="🔕 Не присылать этот маршрут", callback_data=f"r:fmute:{filter_id}")])
     return InlineKeyboardMarkup(inline_keyboard=rows)

@@ -82,8 +82,23 @@ def _day_ok(p: dict, day: str) -> bool:
         return True
 
 
+def _tg_links(p: dict) -> dict:
+    """Ссылка на само сообщение в Telegram и на группу (вступить).
+    Открытая группа: t.me/имя/123 — сообщение открывается у всех.
+    Закрытая: t.me/c/…/123 — только у участников, поэтому даём и «Вступить» (если знаем приглашение)."""
+    link = p.get("link") or ""
+    if p.get("source") != "group" or not link.startswith("https://t.me/"):
+        return {"msg_link": None, "private": False, "join": None}
+    if link.startswith("https://t.me/c/"):
+        chat = (p.get("chat") or "").lower().replace("ё", "е")
+        join = next((u for n, u in TG_GROUPS if n.lower().replace("ё", "е") in chat or chat in n.lower()), None)
+        return {"msg_link": link, "private": True, "join": join}
+    return {"msg_link": link, "private": False, "join": link.rsplit("/", 1)[0]}
+
+
 def _card(p: dict, stale: bool = False) -> dict:
     it = _item(p)
+    it.update(_tg_links(p))
     it.update({
         "id": p.get("id"),
         "ago": ago(p["ts"]) if p.get("ts") else "",
@@ -156,9 +171,16 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
         frm, to = _spec(q.get("from")), _spec(q.get("to"))
         f = Filter(ROUTE, frm, to, both_ways=True) if (frm or to) else None
         day = q.get("day", "all")
-        posts = [p for p in await db.live_posts(kind, limit=500)
-                 if not is_carrier(p) and _day_ok(p, day)
-                 and (f is None or matches(f, post_to_parsed(p)))]
+        base = [p for p in await db.live_posts(kind, limit=500)
+                if not is_carrier(p) and (f is None or matches(f, post_to_parsed(p)))]
+        # Сколько поездок в каждый день — для чипов «Сегодня 12 · Завтра 31»
+        today = datetime.now(TZ).date()
+        counts = {"all": len(base)}
+        for p in base:
+            d = datetime.fromtimestamp(p["trip_at"], TZ).date()
+            key = "today" if d <= today else "tomorrow" if d == today + timedelta(days=1) else d.isoformat()
+            counts[key] = counts.get(key, 0) + 1
+        posts = [p for p in base if _day_ok(p, day)]
         if f is not None:
             ranked = [(rank(f, post_to_parsed(p)), p) for p in posts]
             if f.from_place and f.to_place:
@@ -180,7 +202,7 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
                 items.append(_card(p, stale=True))
                 if len(items) >= MIN_RESULTS + 3:
                     break
-        return web.json_response({"total": len(items), "items": items[:80], "from": frm, "to": to})
+        return web.json_response({"total": len(items), "items": items[:80], "from": frm, "to": to, "counts": counts})
 
     async def one(request):
         await auth(request)
@@ -265,6 +287,15 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
             await db.add_filter(user["id"], Filter(ROUTE, frm, to, both_ways=False), want)
         return web.json_response({"ok": True, "sent": sent, "item": _card(post)})
 
+    async def reset(request):
+        """«Сбросить всё»: удалить все маршруты уведомлений, включить уведомления, выключить тихие часы."""
+        user = await auth(request)
+        for r in await db.filter_rows(user["id"]):
+            await db.delete_filter(user["id"], r["id"])
+        await db.set_active(user["id"], True)
+        await db.set_quiet(user["id"], False)
+        return web.json_response({"ok": True})
+
     async def my(request):
         user = await auth(request)
         return web.json_response({"items": [_card(p) for p in await db.my_posts(user["id"])]})
@@ -301,5 +332,6 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
     app.router.add_post("/app/api/settings", settings)
     app.router.add_post("/app/api/publish", publish)
     app.router.add_get("/app/api/my", my)
+    app.router.add_post("/app/api/reset", reset)
     app.router.add_route("DELETE", "/app/api/my/{id:\\d+}", close)
     app.router.add_post("/app/api/report", report)

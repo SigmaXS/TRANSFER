@@ -37,6 +37,14 @@ a{color:inherit;text-decoration:none}
 .seg{display:flex;background:var(--sur);border:1px solid var(--line);border-radius:14px;padding:4px;margin-bottom:12px}
 .seg button{flex:1;text-align:center;padding:9px 4px;border-radius:10px;font-size:13px;color:var(--tx2)}
 .seg .on{background:var(--sur2);color:var(--tx);font-weight:600}
+.seg button small{display:block;font-size:10.5px;font-weight:500;color:var(--mut);margin-top:1px}
+.card{cursor:pointer;transition:transform .08s,border-color .15s}
+.card:active{transform:scale(.985);border-color:var(--stroke,#35516A)}
+.more{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);font-size:12.5px;color:var(--acc);font-weight:600}
+.more span{color:var(--mut);font-weight:500}
+.chip i{font-style:normal;opacity:.7;margin-left:4px;font-weight:600}
+.over{transition:transform .2s ease}
+.hint{background:var(--sur3);color:var(--cyan);border-radius:12px;padding:9px 12px;font-size:12.5px;line-height:1.4;margin:0 0 12px}
 .lbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);font-weight:600;margin:16px 4px 8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .lbl button{font-style:normal;color:var(--acc);text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600}
 .card{background:var(--sur);border:1px solid var(--line);border-radius:18px;padding:13px 14px;margin-bottom:10px;display:block;width:100%;text-align:left}
@@ -110,7 +118,7 @@ a{color:inherit;text-decoration:none}
 <!-- ============ ПОИСК ============ -->
 <section class="view withfab on" id="v-search">
   <div class="hdr"><div class="logo">🚕</div><div class="t"><b>Попутчики</b><span>Молдова · ПМР · UA · EU</span></div><button class="sq" data-tab="notify">🔔</button></div>
-  <div class="seg" id="seg-mode"><button data-mode="driver" class="on">🚗 Ищу машину</button><button data-mode="passenger">🙋 Ищу пассажиров</button></div>
+  <div class="seg" id="seg-mode"><button data-mode="driver" class="on">🙋 Ищу машину<small>я пассажир</small></button><button data-mode="passenger">🚗 Ищу пассажиров<small>я водитель</small></button></div>
   <div class="route">
     <button class="rf" data-pick="from"><span class="dot" style="background:var(--ok)"></span><div><div class="l">Откуда</div><div class="v" id="s-from"></div></div></button>
     <button class="rf" data-pick="to"><span class="dot" style="background:var(--dan)"></span><div><div class="l">Куда</div><div class="v" id="s-to"></div></div></button>
@@ -153,6 +161,8 @@ a{color:inherit;text-decoration:none}
   </div>
   <div class="lbl"><span>Наши группы</span></div>
   <div class="grp" id="p-groups"></div>
+  <div class="lbl"><span>Начать заново</span></div>
+  <div class="grp"><button class="it" id="p-reset"><div class="ic" style="background:var(--danbg)">🔄</div><div class="t"><b>Сбросить всё</b><span>Удалить маршруты уведомлений и выбранный маршрут</span></div><span class="arr">›</span></button></div>
   <div class="lbl"><span>Как это работает</span></div>
   <div class="card" style="font-size:13px;color:var(--tx2);line-height:1.5">Собираю поездки из групп попутчиков Viber и Telegram. Перевозчиков и рекламу убираю — остаются частные водители и пассажиры. Нашли поездку — звоните напрямую, о цене и месте встречи договаривайтесь с водителем.</div>
 </section>
@@ -235,7 +245,7 @@ const pretty = ph => { const d = String(ph || '').replace(/\D/g, ''); const l = 
 
 // ---------- состояние ----------
 const S = { me: null, places: { popular: [], all: [], ro: {} }, mode: store.get('mode', 'driver'), from: store.get('from', ''), to: store.get('to', ''),
-            day: 'today', items: [], tab: 'search', overlays: [],
+            day: 'all', counts: {}, items: [], tab: 'search', overlays: [],
             c: { kind: 'passenger', from: '', to: '', day: 'today', count: 1 } };
 
 // ---------- дни ----------
@@ -248,7 +258,8 @@ function dayChips(withAll) {
   return out;
 }
 function renderDays() {
-  $('#days').innerHTML = dayChips(true).map(([k, t]) => `<button class="chip ${S.day === k ? 'on' : ''}" data-day="${k}">${t}</button>`).join('');
+  const order = dayChips(true); order.unshift(order.pop());   // «Все дни» первым
+  $('#days').innerHTML = order.map(([k, t]) => { const n = S.counts[k]; return `<button class="chip ${S.day === k ? 'on' : ''}" data-day="${k}">${t}${n != null ? `<i>${n}</i>` : ''}</button>` }).join('');
   $('#c-days').innerHTML = dayChips(false).map(([k, t]) => `<button class="chip ${S.c.day === k ? 'on' : ''}" data-cday="${k}">${t}</button>`).join('');
 }
 
@@ -256,8 +267,8 @@ function renderDays() {
 function cardTag(it) {
   if (it.own) return `<span class="tag mine">⭐ Ваше</span>`;
   if (it.stale) return `<span class="tag old">🕓 Ездит часто</span>`;
-  if (it.kind === 'driver') return `<span class="tag car">🚗 Машина${it.seats ? ' · ' + it.seats + ' ' + plural(it.seats, 'место', 'места', 'мест') : ''}</span>`;
-  return `<span class="tag pas">🙋 Ищут машину${it.people ? ' · ' + it.people + ' чел.' : ''}</span>`;
+  if (it.kind === 'driver') return `<span class="tag car">🚗 Свободная машина${it.seats ? ' · ' + it.seats + ' ' + plural(it.seats, 'место', 'места', 'мест') : ''}</span>`;
+  return `<span class="tag pas">🙋 Ищет машину${it.people ? ' · ' + it.people + ' чел.' : ''}</span>`;
 }
 function plural(n, a, b, c) { n = Math.abs(n) % 100; const n1 = n % 10; if (n > 10 && n < 20) return c; if (n1 > 1 && n1 < 5) return b; if (n1 === 1) return a; return c }
 function cardTime(it) {
@@ -270,6 +281,7 @@ const routeOf = it => `${it.from || '?'} → ${it.to || '?'}`;
 const who = it => it.author || (it.telegram ? '@' + it.telegram : '');
 function groupBtn(it) {
   if (it.telegram) return `<a class="btn" data-act="tg" data-u="${esc(it.telegram)}">✉️ Написать</a>`;
+  if (it.msg_link) return `<a class="btn" data-act="url" data-url="${esc(it.msg_link)}">💬 Сообщение</a>`;
   if (it.group_link) return `<a class="btn${it.group_kind === 'viber' ? ' v' : ''}" data-act="url" data-url="${esc(it.group_link)}">🔗 Группа</a>`;
   return '';
 }
@@ -283,7 +295,8 @@ function cardHtml(it, i) {
     <div class="ct">${cardTag(it)}${cardTime(it)}</div>
     <div class="rt">${esc(routeOf(it))}</div><div class="meta">${meta}</div>
     ${short ? `<div class="txt">${esc(short)}</div>` : '<div style="height:10px"></div>'}
-    ${acts ? `<div class="acts">${acts}</div>` : ''}</div>`;
+    ${acts ? `<div class="acts">${acts}</div>` : ''}
+    <div class="more">Подробнее<span>›</span></div></div>`;
 }
 document.addEventListener('click', e => {
   const a = e.target.closest('[data-act]');
@@ -323,7 +336,7 @@ async function loadRides() {
     $('#list').innerHTML = `<div class="hero lock"><b>⛔️ Пробный доступ закончился</b><span>${esc(r.payment_text)}</span></div>`;
     return;
   }
-  S.items = r.items;
+  S.items = r.items; S.counts = r.counts || {}; renderDays();
   const live = r.items.filter(x => !x.stale).length;
   $('#found').textContent = `Найдено ${live}`;
   if (!r.items.length) {
@@ -356,12 +369,14 @@ function openDetail(it) {
     : `<div class="kv"><span>Откуда взято</span><b>${esc(it.source_label)}</b></div>`;
   const text = (it.text || '').trim();
   $('#o-detail').innerHTML = `
-    <div class="hero"><span class="tag ${it.stale ? 'old' : isCar ? 'car' : 'pas'}">${it.stale ? '🕓 Ездит по этому маршруту' : isCar ? '🚗 Свободная машина' : '🙋 Ищут машину'}</span>
+    <div class="hero"><span class="tag ${it.stale ? 'old' : isCar ? 'car' : 'pas'}">${it.stale ? '🕓 Ездит по этому маршруту' : isCar ? '🚗 Свободная машина' : '🙋 Ищет машину'}</span>
       <div class="big">${esc(routeOf(it))}</div><span>${esc(sub)}</span></div>
     ${it.phone ? `<button class="phonebox" data-act="copy" data-ph="${esc(it.phone)}"><div>${esc(pretty(it.phone))}<small>номер из объявления · нажмите, чтобы скопировать</small></div><span style="font-size:22px">📋</span></button>
       <div class="acts" style="margin-bottom:12px"><a class="btn y big" data-act="call" data-ph="${esc(it.phone)}">📞 Позвонить</a><a class="btn v big" data-act="viber" data-ph="${esc(it.phone)}">💬 Viber</a></div>`
-      : `<div class="acts" style="margin:12px 0">${groupBtn(it).replace('class="btn', 'class="btn y big')}</div>`}
+      : (it.msg_link && !it.telegram) ? '<div style="height:12px"></div>' : `<div class="acts" style="margin:12px 0">${groupBtn(it).replace('class="btn', 'class="btn y big')}</div>`}
     ${it.telegram && it.phone ? `<div class="acts" style="margin-bottom:12px"><a class="btn" data-act="tg" data-u="${esc(it.telegram)}">✉️ Написать в Telegram</a></div>` : ''}
+    ${it.msg_link ? `<div class="acts" style="margin-bottom:${it.private ? 8 : 12}px"><a class="btn big${it.phone || it.telegram ? '' : ' y'}" data-act="url" data-url="${esc(it.msg_link)}">💬 Открыть сообщение в группе</a>${it.join ? `<a class="btn big" data-act="url" data-url="${esc(it.join)}" style="flex:.6">➕ Вступить</a>` : ''}</div>
+      ${it.private ? `<div class="hint">🔒 Группа закрытая: сообщение откроется, только если вы в ней состоите.${it.join ? ' Сначала нажмите «Вступить».' : ''}</div>` : ''}` : ''}
     <div class="lbl"><span>Подробно</span></div>
     <div class="grp">
       ${who(it) ? `<div class="kv"><span>${isCar ? 'Водитель' : 'Пассажир'}</span><b>${esc(who(it))}</b></div>` : ''}
@@ -595,6 +610,38 @@ $$('[data-role]').forEach(b => b.onclick = async () => {
   S.mode = b.dataset.role === 'driver' ? 'passenger' : 'driver';
   try { await api('role', { method: 'POST', body: { role: b.dataset.role } }); await loadMe(); renderProfile() } catch (e) { toast(e.message) }
 });
+
+$('#p-reset').onclick = () => {
+  const go = async () => {
+    try { await api('reset', { method: 'POST' }) } catch (e) { return toast(e.message) }
+    ['mode', 'from', 'to', 'phone'].forEach(k => { try { localStorage.removeItem('pp_' + k) } catch {} });
+    S.from = ''; S.to = ''; S.day = 'all'; S.mode = S.me.role === 'driver' ? 'passenger' : 'driver';
+    await loadMe(); renderProfile(); haptic('heavy'); toast('Всё сброшено'); showTab('search'); loadRides();
+  };
+  if (tg && tg.showConfirm) tg.showConfirm('Сбросить всё? Маршруты уведомлений удалятся.', ok => ok && go()); else go();
+};
+
+// ---------- свайп назад: провести пальцем слева направо ----------
+(function swipeBack() {
+  let x0 = 0, y0 = 0, el = null, dx = 0, track = false;
+  document.addEventListener('touchstart', e => {
+    const sheetOn = $('#sheet').classList.contains('on');
+    if (!S.overlays.length && !sheetOn) return;
+    const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; track = true;
+    el = sheetOn ? null : $('#' + S.overlays[S.overlays.length - 1]);
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!track) return;
+    const t = e.touches[0]; dx = t.clientX - x0; const dy = Math.abs(t.clientY - y0);
+    if (dy > 40 && dy > Math.abs(dx)) { track = false; if (el) el.style.transform = ''; return }
+    if (el && dx > 0) el.style.transform = `translateX(${dx}px)`;
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    if (!track) return; track = false;
+    if (el) el.style.transform = '';
+    if (dx > 90) { haptic(); back() }
+  });
+})();
 
 // ---------- старт ----------
 async function loadMe() { S.me = await api('me') }
