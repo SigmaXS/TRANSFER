@@ -22,6 +22,8 @@ class Filter:
     to_place: str | None = None
     both_ways: bool = True
     id: int | None = None
+    time_from: str | None = None    # окно времени поездки для уведомлений, «17:00»; None — любое время
+    time_to: str | None = None
 
     def title(self) -> str:
         if self.kind == ALL:

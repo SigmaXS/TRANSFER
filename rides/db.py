@@ -39,6 +39,9 @@ CREATE TABLE IF NOT EXISTS ride_filters (
 ALTER TABLE ride_filters ADD COLUMN IF NOT EXISTS want TEXT DEFAULT 'passenger';
 -- Mini App: маршрут можно выключить, не удаляя; тихие часы (23–07 без звука)
 ALTER TABLE ride_filters ADD COLUMN IF NOT EXISTS enabled BOOLEAN DEFAULT TRUE;
+-- В какое время поездки присылать по маршруту: «после работы» 17:00–20:00 и т.п. (NULL — любое время)
+ALTER TABLE ride_filters ADD COLUMN IF NOT EXISTS time_from TEXT;
+ALTER TABLE ride_filters ADD COLUMN IF NOT EXISTS time_to TEXT;
 ALTER TABLE ride_users ADD COLUMN IF NOT EXISTS quiet BOOLEAN DEFAULT FALSE;
 -- Тихие часы со своим временем и данные профиля (имя, телефон, где писать, машина…) для готовых заявок
 ALTER TABLE ride_users ADD COLUMN IF NOT EXISTS quiet_from TEXT DEFAULT '23:00';
@@ -130,7 +133,9 @@ def _user(r) -> RideUser:
 
 
 def _filter(r) -> Filter:
-    return Filter(r["kind"], r["from_place"], r["to_place"], r["both_ways"], r["id"])
+    keys = r.keys() if hasattr(r, "keys") else r
+    return Filter(r["kind"], r["from_place"], r["to_place"], r["both_ways"], r["id"],
+                  r["time_from"] if "time_from" in keys else None, r["time_to"] if "time_to" in keys else None)
 
 
 class RidesDB:
@@ -198,6 +203,10 @@ class RidesDB:
     async def filter_rows(self, user_id: int) -> list[dict]:
         rows = await self.pool.fetch("SELECT * FROM ride_filters WHERE user_id=$1 ORDER BY id", user_id)
         return [dict(r) for r in rows]
+
+    async def set_filter_time(self, user_id: int, filter_id: int, frm: str | None, to: str | None):
+        await self.pool.execute("UPDATE ride_filters SET time_from=$3, time_to=$4 WHERE id=$1 AND user_id=$2",
+                                filter_id, user_id, frm, to)
 
     async def set_filter_enabled(self, user_id: int, filter_id: int, enabled: bool):
         await self.pool.execute("UPDATE ride_filters SET enabled=$3 WHERE id=$1 AND user_id=$2",

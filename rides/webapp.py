@@ -158,6 +158,7 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
         u = await db.get_user(user["id"])
         filters = [{"id": r["id"], "kind": r["kind"], "from": r["from_place"], "to": r["to_place"],
                     "both": r["both_ways"], "want": r["want"], "enabled": r.get("enabled") is not False,
+                    "time_from": r.get("time_from"), "time_to": r.get("time_to"),
                     "title": Filter(r["kind"], r["from_place"], r["to_place"], r["both_ways"]).title()}
                    for r in await db.filter_rows(user["id"])]
         return web.json_response({
@@ -255,7 +256,14 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
         if request.method == "DELETE":
             await db.delete_filter(user["id"], fid)
         else:
-            await db.set_filter_enabled(user["id"], fid, bool((await body(request)).get("enabled")))
+            b = await body(request)
+            if "enabled" in b:
+                await db.set_filter_enabled(user["id"], fid, bool(b.get("enabled")))
+            if "time_from" in b:   # окно времени поездки; пусто — любое время
+                hm = re.compile(r"([01]?\d|2[0-3]):[0-5]\d")
+                tf, tt = str(b.get("time_from") or ""), str(b.get("time_to") or "")
+                ok = hm.fullmatch(tf) and hm.fullmatch(tt)
+                await db.set_filter_time(user["id"], fid, tf if ok else None, tt if ok else None)
         return web.json_response({"ok": True})
 
     async def settings(request):

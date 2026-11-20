@@ -57,6 +57,7 @@ a{color:inherit;text-decoration:none}
 .field input::placeholder,.field textarea::placeholder{color:var(--mut);font-weight:500}
 .sub2{font-size:12px;color:var(--mut);margin:-2px 4px 10px}
 .qh{display:flex;gap:10px;padding:0 14px 12px}.qh .field{flex:1;margin:0}
+.tw{display:inline-block;margin-top:4px;padding:3px 10px;border-radius:10px;background:var(--sur2);color:var(--acc);font-size:12px;font-weight:600}
 .hint{background:var(--sur3);color:var(--cyan);border-radius:12px;padding:9px 12px;font-size:12.5px;line-height:1.4;margin:0 0 12px}
 .lbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);font-weight:600;margin:16px 4px 8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .lbl button{font-style:normal;color:var(--acc);text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600}
@@ -242,6 +243,7 @@ a{color:inherit;text-decoration:none}
 <section class="over" id="o-share"></section>
 
 <!-- ============ ВЫБОР ГОРОДА ============ -->
+<div class="sheet" id="tw-sheet"></div>
 <div class="sheet" id="sheet"><div class="box">
   <div class="grab"></div>
   <div class="field" style="margin:0"><label id="sh-title">Откуда</label><input id="sh-q" placeholder="Город или село" autocomplete="off"></div>
@@ -714,10 +716,13 @@ function renderNotify() {
   $('#n-routes').innerHTML = me.filters.length ? me.filters.map(f => {
     const t = f.title.replace(/^🛣\s*/, '').replace(/\s*\(.*\)$/, '');
     const sub = [f.kind === 'route' ? (f.both && f.from && f.to ? 'туда и обратно' : 'в одну сторону') : 'целый регион', f.want === 'driver' ? 'машины' : 'пассажиры'].join(' · ');
-    return `<div class="it" data-f="${f.id}"><div class="ic">${f.kind === 'route' ? '🛣' : '🗺'}</div><div class="t"><b>${esc(t)}</b><span>${esc(sub)}</span></div><button class="arr" data-fdel="${f.id}" style="padding:0 6px">✕</button><button class="sw ${f.enabled ? 'on' : ''}" data-ftog="${f.id}"></button></div>`;
+    const tw = f.time_from && f.time_to ? `🕐 ${f.time_from}–${f.time_to}` : '🕐 любое время';
+    return `<div class="it" data-f="${f.id}"><div class="ic">${f.kind === 'route' ? '🛣' : '🗺'}</div><div class="t"><b>${esc(t)}</b><span>${esc(sub)}</span><button class="tw" data-ftime="${f.id}">${tw} ›</button></div><button class="arr" data-fdel="${f.id}" style="padding:0 6px">✕</button><button class="sw ${f.enabled ? 'on' : ''}" data-ftog="${f.id}"></button></div>`;
   }).join('') : `<div class="it"><div class="ic">🛣</div><div class="t"><b>Маршрутов пока нет</b><span>Нажмите «＋ Добавить» — и пришлю новые поездки</span></div></div>`;
 }
 $('#n-routes').onclick = async e => {
+  const tw = e.target.closest('[data-ftime]');
+  if (tw) { haptic(); return openTimeWin(S.me.filters.find(f => String(f.id) === tw.dataset.ftime)) }
   const t = e.target.closest('[data-ftog]'), d = e.target.closest('[data-fdel]');
   try {
     if (t) { haptic(); const on = !t.classList.contains('on'); t.classList.toggle('on', on); await api('filters/' + t.dataset.ftog, { method: 'POST', body: { enabled: on } }); await loadMe(); renderNotify() }
@@ -733,6 +738,31 @@ $('#n-quiet').onclick = async () => { haptic(); S.me.quiet = !S.me.quiet; render
   S.me.quiet_from = f; S.me.quiet_to = t; renderNotify();
   try { await api('settings', { method: 'POST', body: { quiet_from: f, quiet_to: t } }); toast(`🌙 Тихо с ${f} до ${t}`) } catch (e) { toast(e.message) }
 });
+// Окно времени поездки для маршрута: присылать только поездки, например, с 17:00 до 20:00
+function openTimeWin(f) {
+  if (!f) return;
+  const presets = [['', '', 'Любое время'], ['05:00', '10:00', '🌅 Утро 5–10'], ['10:00', '17:00', '☀️ День 10–17'], ['17:00', '21:00', '🌆 После работы 17–21'], ['21:00', '05:00', '🌙 Ночь 21–5']];
+  $('#tw-sheet').innerHTML = `<div class="box"><div class="grab"></div>
+    <div class="lbl"><span>Когда присылать поездки</span></div>
+    <p class="note" style="margin:0 4px 10px">${esc(f.title.replace(/^🛣\s*/, ''))} — только поездки с выездом в это время</p>
+    <div class="chips" style="flex-wrap:wrap">${presets.map(([a, b, n]) => `<button class="chip ${(f.time_from || '') === a && (f.time_to || '') === b ? 'on' : ''}" data-tw="${a}|${b}">${n}</button>`).join('')}</div>
+    <div class="row2"><div class="field"><label>С</label><input type="time" id="tw-a" value="${f.time_from || ''}"></div><div class="field"><label>До</label><input type="time" id="tw-b" value="${f.time_to || ''}"></div></div>
+    <button class="btn y big" id="tw-save" style="width:100%">Сохранить</button></div>`;
+  $('#tw-sheet').classList.add('on');
+  $('#tw-sheet').onclick = ev => {
+    if (ev.target.id === 'tw-sheet') return $('#tw-sheet').classList.remove('on');
+    const p = ev.target.closest('[data-tw]');
+    if (p) { const [a, b] = p.dataset.tw.split('|'); $('#tw-a').value = a; $('#tw-b').value = b; $$('#tw-sheet [data-tw]').forEach(x => x.classList.toggle('on', x === p)) }
+  };
+  $('#tw-save').onclick = async () => {
+    const a = $('#tw-a').value, b = $('#tw-b').value;
+    try {
+      await api('filters/' + f.id, { method: 'POST', body: { time_from: a && b ? a : '', time_to: a && b ? b : '' } });
+      $('#tw-sheet').classList.remove('on'); await loadMe(); renderNotify(); haptic('medium');
+      toast(a && b ? `🕐 Пришлю поездки с ${a} до ${b}` : '🕐 Любое время');
+    } catch (e) { toast(e.message) }
+  };
+}
 $('#n-add').onclick = () => pickPlace('Откуда', true, frm => pickPlace('Куда', true, async to => {
   if (!frm && !to) return toast('Укажите хотя бы один город');
   try { await api('filters', { method: 'POST', body: { from: frm, to, want: S.mode, both: true } }); await loadMe(); renderNotify(); toast('🔔 Маршрут добавлен') } catch (e) { toast(e.message) }

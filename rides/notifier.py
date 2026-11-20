@@ -40,6 +40,19 @@ def notify_keyboard(post: dict, filter_id: int | None) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def _in_window(post: dict, f) -> bool:
+    """Подходит ли время поездки под окно маршрута (например, 17:00–20:00). Без окна — всегда.
+    Поездка без точного времени в окно не попадает только если день точно другой — такие тоже присылаем."""
+    if not (f.time_from and f.time_to) or not post.get("has_time"):
+        return True
+    def mins(s):
+        h, m = (int(x) for x in s.split(":"))
+        return h * 60 + m
+    t = datetime.fromtimestamp(post["trip_at"], TZ)
+    n, a, b = t.hour * 60 + t.minute, mins(f.time_from), mins(f.time_to)
+    return a <= n <= b if a <= b else (n >= a or n <= b)
+
+
 def _in_quiet(window: tuple[str, str]) -> bool:
     """Сейчас внутри тихих часов? Окно может переходить через полночь: 23:00–07:00."""
     def mins(s):
@@ -72,7 +85,7 @@ class Notifier:
         for user, filters in await self.db.recipients(want=post["kind"]):
             if user.user_id == post.get("author_id"):
                 continue
-            hit = next((f for f in filters if matches(f, parsed)), None)
+            hit = next((f for f in filters if matches(f, parsed) and _in_window(post, f)), None)
             if hit is None:
                 continue
             kb = notify_keyboard(post, hit.id)
