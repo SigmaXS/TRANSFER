@@ -81,6 +81,9 @@ async def process(db: RidesDB, notifier: Notifier, title: str, text: str,
     if groups and not any(g in haystack for g in groups):
         return {"ok": True, "skipped": "not a rides group"}
     group, sender, body = split_sender(title, text)
+    # «» Переслана ; РОРИТКАМО ;» — шапка пересланного сообщения Viber (с ошибками распознавания) — не текст заявки.
+    # Без неё одинаковые пересылки из разных групп ещё и склеиваются как дубли.
+    body = re.sub(r"^\W*пересл\w*[^\n]*?(?:;[^;\n]*;|\n)\s*", "", body, flags=re.I).strip()
     if len(body) < 6:
         return {"ok": True, "skipped": "empty"}
     p = parse_message(body)
