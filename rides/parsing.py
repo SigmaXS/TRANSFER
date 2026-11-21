@@ -147,9 +147,12 @@ def _route(norm: str):
     return frm, to, uniq
 
 
-_REL_NUM = {"пару": 2, "пара": 2, "два": 2, "две": 2, "три": 3, "один": 1, "одну": 1, "полтора": 1.5}
+_REL_NUM = {"пару": 2, "пара": 2, "два": 2, "две": 2, "двух": 2, "три": 3, "трех": 3, "один": 1, "одну": 1,
+            "полтора": 1.5, "полутора": 1.5}
 _REL_RE = re.compile(r"\bчерез\s+мин\w*\s+(?P<n2>\d{1,3})"
-                     r"|\bчерез\s+(?:(?P<n>\d{1,3}|пару|пара|два|две|три|один|одну|полтора)\s*-?\s*)?(?P<u>полчаса|час\w*|мин\w*)")
+                     r"|\b(?:через|в\s+течени[еяи]|в\s+ближаиш\w+)\s+"
+                     r"(?:(?P<n>\d{1,3}|пару|пара|двух|два|две|трех|три|один|одну|полутора|полтора)\s*-?\s*)?"
+                     r"(?P<u>полчаса|получаса|час\w*|мин\w*)")
 
 
 def _relative(norm: str) -> int | None:
@@ -160,7 +163,7 @@ def _relative(norm: str) -> int | None:
     if m.group("n2"):
         return int(m.group("n2"))
     raw, unit = m.group("n"), m.group("u")
-    if unit == "полчаса":
+    if unit in ("полчаса", "получаса"):
         return 30
     n = float(raw) if raw and raw.isdigit() else _REL_NUM.get(raw or "", 1)
     mins = int(n * 60) if unit.startswith("час") else int(n)
