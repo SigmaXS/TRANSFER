@@ -84,6 +84,32 @@ CREATE TABLE IF NOT EXISTS ride_posts (
     active BOOLEAN DEFAULT TRUE
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ride_posts_fp ON ride_posts (fingerprint);
+-- Исправлено админом в Mini App: повторный разбор (reparse_live) его не трогает
+ALTER TABLE ride_posts ADD COLUMN IF NOT EXISTS edited BOOLEAN DEFAULT FALSE;
+
+-- Общий чат в Mini App (пожелания, вопросы), по дням
+CREATE TABLE IF NOT EXISTS ride_chat (
+    id BIGSERIAL PRIMARY KEY,
+    ts DOUBLE PRECISION,
+    user_id BIGINT,
+    name TEXT,
+    text TEXT,
+    deleted BOOLEAN DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS ride_chat_ts ON ride_chat (ts);
+
+-- Журнал правок админа: что бот разобрал неверно (для улучшения разбора)
+CREATE TABLE IF NOT EXISTS ride_fixes (
+    id BIGSERIAL PRIMARY KEY,
+    ts DOUBLE PRECISION,
+    admin_id BIGINT,
+    post_id INT,
+    action TEXT,                 -- 'edit' | 'delete'
+    reason TEXT,
+    text TEXT,                   -- исходный текст объявления
+    before JSONB,
+    after JSONB
+);
 CREATE INDEX IF NOT EXISTS ride_posts_live ON ride_posts (kind, expires_at);
 
 -- Группы, добавленные админом из бота (в дополнение к sources.txt и RIDES_SOURCES)
@@ -354,6 +380,65 @@ class RidesDB:
         await self.pool.execute("UPDATE ride_posts SET active=FALSE WHERE id=$1 AND author_id=$2",
                                 post_id, user_id)
 
+    # --- правки админа ---
+    FIX_KEYS = ("kind", "from_place", "to_place", "trip_at", "expires_at", "has_time", "when_label",
+                "people", "seats", "phone")
+
+    async def admin_edit_post(self, admin_id: int, post_id: int, changes: dict, reason: str | None) -> dict | None:
+        """Исправить объявление (поля из FIX_KEYS + places) и записать в журнал, как было и как стало."""
+        old = await self.get_post(post_id)
+        if not old:
+            return None
+        changes = {k: v for k, v in changes.items() if k in self.FIX_KEYS or k == "places"}
+        sets = ", ".join(f"{k}=${i}" for i, k in enumerate(changes, start=2))
+        r = await self.pool.fetchrow(f"UPDATE ride_posts SET {sets}, edited=TRUE, active=TRUE WHERE id=$1 RETURNING *",
+                                     post_id, *changes.values())
+        await self._log_fix(admin_id, old, "edit", reason, dict(r))
+        return dict(r)
+
+    async def admin_delete_post(self, admin_id: int, post_id: int, reason: str | None) -> bool:
+        old = await self.get_post(post_id)
+        if not old:
+            return False
+        await self.pool.execute("UPDATE ride_posts SET active=FALSE WHERE id=$1", post_id)
+        await self._log_fix(admin_id, old, "delete", reason, None)
+        return True
+
+    async def _log_fix(self, admin_id: int, old: dict, action: str, reason: str | None, new: dict | None):
+        pick = lambda d: {k: d.get(k) for k in self.FIX_KEYS} if d else None  # noqa: E731
+        await self.pool.execute(
+            "INSERT INTO ride_fixes (ts, admin_id, post_id, action, reason, text, before, after)"
+            " VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb)",
+            time.time(), admin_id, old["id"], action, reason, old.get("text") or old.get("comment"),
+            json.dumps(pick(old), ensure_ascii=False), json.dumps(pick(new), ensure_ascii=False) if new else None)
+
+    async def fixes(self, days: int = 30) -> list[dict]:
+        rows = await self.pool.fetch("SELECT * FROM ride_fixes WHERE ts > $1 ORDER BY ts",
+                                     time.time() - days * DAY)
+        return [dict(r) for r in rows]
+
+    # --- чат ---
+    async def chat_messages(self, days: int = 7, limit: int = 300) -> list[dict]:
+        rows = await self.pool.fetch(
+            "SELECT id, ts, user_id, name, text FROM ride_chat WHERE NOT deleted AND ts > $1"
+            " ORDER BY ts DESC LIMIT $2", time.time() - days * DAY, limit)
+        return [dict(r) for r in reversed(rows)]
+
+    async def chat_add(self, user_id: int, name: str, text: str) -> dict:
+        r = await self.pool.fetchrow("INSERT INTO ride_chat (ts, user_id, name, text) VALUES ($1,$2,$3,$4)"
+                                     " RETURNING id, ts, user_id, name, text", time.time(), user_id, name, text)
+        return dict(r)
+
+    async def chat_last_ts(self, user_id: int) -> float:
+        return await self.pool.fetchval("SELECT COALESCE(MAX(ts), 0) FROM ride_chat WHERE user_id=$1", user_id)
+
+    async def chat_delete(self, msg_id: int, user_id: int | None = None):
+        """user_id=None — админ удаляет любое сообщение, иначе только своё."""
+        if user_id is None:
+            await self.pool.execute("UPDATE ride_chat SET deleted=TRUE WHERE id=$1", msg_id)
+        else:
+            await self.pool.execute("UPDATE ride_chat SET deleted=TRUE WHERE id=$1 AND user_id=$2", msg_id, user_id)
+
     async def recent_posts(self, kind: str, days: int = KEEP_DAYS, limit: int = 1000) -> list[dict]:
         """Уже прошедшие объявления за последние дни: сначала самые свежие."""
         now = time.time()
@@ -369,7 +454,8 @@ class RidesDB:
         from .timeparse import TZ, trip_window
         rows = await self.pool.fetch(
             "SELECT id, ts, text, kind, people, seats, trip_at, has_time, when_label FROM ride_posts"
-            " WHERE active AND source='group' AND expires_at > $1 AND text IS NOT NULL", time.time())
+            " WHERE active AND source='group' AND expires_at > $1 AND text IS NOT NULL"
+            " AND NOT COALESCE(edited, FALSE)", time.time())
         changed = 0
         for r in rows:
             p = parse_message(r["text"])

@@ -1,5 +1,5 @@
 """Бот «Попутчики»: для людей — одно приветствие и кнопка Mini App (всё остальное — внутри Mini App).
-Для админа — команды: /grant, /stats, /findgroups, /addsource, /sources, /paste, /viberreset, /ingestlog.
+Для админа — команды: /grant, /stats, /findgroups, /addsource, /sources, /paste, /viberreset, /ingestlog, /fixes.
 """
 import html
 import os
@@ -326,6 +326,29 @@ async def ingest_log(msg: Message):
                      f"{html.escape(text or '(без текста)')}\n" + (f"{fields}\n" if fields else
                                                                     "  <i>других полей нет</i>\n"))
     await msg.answer("\n".join(lines)[:4000], parse_mode="HTML")
+
+
+@router.message(Command("fixes"), F.from_user.id.in_(ADMIN_IDS))
+async def fixes_log(msg: Message, rides_db: RidesDB, command: CommandObject):
+    """/fixes [дней] — журнал правок и удалений из Mini App файлом (что бот разобрал неверно)."""
+    import json
+    from aiogram.types import BufferedInputFile
+    days = int(command.args) if command.args and command.args.strip().isdigit() else 30
+    rows = await rides_db.fixes(days)
+    if not rows:
+        await msg.answer(f"За {days} дн. правок не было.")
+        return
+    out = []
+    for r in rows:
+        r = dict(r)
+        for k in ("before", "after"):
+            if isinstance(r.get(k), str):
+                r[k] = json.loads(r[k])
+        r["time"] = datetime.fromtimestamp(r["ts"], TZ).strftime("%Y-%m-%d %H:%M")
+        out.append(json.dumps(r, ensure_ascii=False, default=str))
+    edits = sum(1 for r in rows if r["action"] == "edit")
+    await msg.answer_document(BufferedInputFile("\n".join(out).encode(), filename=f"fixes-{days}d.jsonl"),
+                              caption=f"Правок: {edits}, удалений: {len(rows) - edits} за {days} дн.")
 
 
 @router.message(F.chat.type == "private")

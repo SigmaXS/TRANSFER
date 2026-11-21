@@ -24,7 +24,7 @@ from .filters import ROUTE, Filter, matches, rank
 from .parsing import DRIVER, PASSENGER
 from .places import PLACES, POPULAR, RO_NAMES, resolve_place
 from .posts import format_post, post_from_bot, post_to_parsed, viber_links
-from .timeparse import TZ, ago
+from .timeparse import TZ, ago, trip_window
 
 log_ = logging.getLogger("rides.webapp")
 
@@ -108,6 +108,8 @@ def _card(p: dict, stale: bool = False) -> dict:
         "time": datetime.fromtimestamp(p["trip_at"], TZ).strftime("%H:%M") if p.get("has_time") else None,
         "source_label": p.get("chat") or ("Попутчики · бот" if p.get("source") == "bot" else "сайт"),
         "own": False,
+        "edited": bool(p.get("edited")),
+        "day": datetime.fromtimestamp(p["trip_at"], TZ).date().isoformat() if p.get("trip_at") else None,
     })
     return it
 
@@ -390,6 +392,85 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
                     pass
         return web.json_response({"ok": True})
 
+    # ---------- админ: удалить / исправить объявление ----------
+    async def admin_post(request):
+        user = await auth(request)
+        if user["id"] not in ADMIN_IDS:
+            raise web.HTTPForbidden(text='{"error":"admin only"}', content_type="application/json")
+        pid = int(request.match_info["id"])
+        b = await body(request)
+        reason = (b.get("reason") or "").strip()[:200] or None
+        if request.method == "DELETE":
+            ok = await db.admin_delete_post(user["id"], pid, reason or request.query.get("reason"))
+            return web.json_response({"ok": ok})
+        old = await db.get_post(pid)
+        if not old:
+            raise web.HTTPNotFound(text='{"error":"not found"}', content_type="application/json")
+        ch: dict = {}
+        if b.get("kind") in (DRIVER, PASSENGER):
+            ch["kind"] = b["kind"]
+        frm = resolve_place(b.get("from") or "") or (b.get("from") or "").strip() or None
+        to = resolve_place(b.get("to") or "") or (b.get("to") or "").strip() or None
+        ch["from_place"], ch["to_place"] = frm, to
+        mid = [x for x in (old.get("places") or []) if x not in (old.get("from_place"), old.get("to_place"), frm, to)]
+        ch["places"] = [x for x in [frm, *mid, to] if x]
+        try:
+            n = int(b.get("count") or 0) or None
+        except ValueError:
+            n = None
+        kind = ch.get("kind", old["kind"])
+        ch["people"], ch["seats"] = (n, None) if kind == PASSENGER else (None, n)
+        if "phone" in b:
+            ch["phone"] = re.sub(r"[^\d+]", "", str(b.get("phone") or ""))[:20] or None
+        day = str(b.get("day") or "")
+        if day:
+            when, date_str = {"today": ("сегодня", None), "tomorrow": ("завтра", None)}.get(day, (None, None))
+            if when is None and re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+                date_str = f"{int(day[8:10])}.{int(day[5:7])}"
+            t = str(b.get("time") or "").strip()
+            t = t if re.fullmatch(r"([01]?\d|2[0-3]):[0-5]\d", t) else None
+            trip_at, expires_at, has_time = trip_window(when, date_str, t, datetime.now(TZ))
+            ch.update(trip_at=trip_at, expires_at=expires_at, has_time=has_time, when_label=when)
+        post = await db.admin_edit_post(user["id"], pid, ch, reason)
+        return web.json_response({"ok": True, "item": _card(post, stale=post["expires_at"] < time.time())})
+
+    # ---------- общий чат ----------
+    async def chat(request):
+        user = await auth(request)
+        admin_ids = ADMIN_IDS
+        items = [{"id": m["id"], "ts": m["ts"], "name": m["name"], "text": m["text"],
+                  "own": m["user_id"] == user["id"], "admin": m["user_id"] in admin_ids}
+                 for m in await db.chat_messages()]
+        return web.json_response({"items": items, "can_delete": user["id"] in ADMIN_IDS})
+
+    async def chat_post(request):
+        user = await auth(request)
+        text = re.sub(r"\s+\n", "\n", str((await body(request)).get("text") or "")).strip()[:500]
+        if not text:
+            return web.json_response({"ok": False, "error": "Пустое сообщение"}, status=400)
+        wait = 60 - (time.time() - await db.chat_last_ts(user["id"]))
+        if wait > 0 and user["id"] not in ADMIN_IDS:   # от спама: одно сообщение в минуту
+            return web.json_response({"ok": False, "error": f"Следующее сообщение через {int(wait) + 1} с"}, status=429)
+        name = (user.get("first_name") or "").strip() or (user.get("username") or "Гость")
+        if user.get("last_name"):
+            name += f" {user['last_name'][:1]}."
+        m = await db.chat_add(user["id"], name[:40], text)
+        await log(user["id"], "chat", {"len": len(text)})
+        if user["id"] not in ADMIN_IDS:   # админу — сразу в Telegram, чтобы не пропустить пожелание
+            for a in ADMIN_IDS:
+                try:
+                    await notifier.bot.send_message(a, f"💬 <b>Чат Попутчиков</b> · {html.escape(name)}:\n"
+                                                       f"{html.escape(text)}", parse_mode="HTML")
+                except Exception:  # noqa: BLE001
+                    pass
+        return web.json_response({"ok": True, "item": {**m, "own": True, "admin": user["id"] in ADMIN_IDS}})
+
+    async def chat_del(request):
+        user = await auth(request)
+        mid = int(request.match_info["id"])
+        await db.chat_delete(mid, None if user["id"] in ADMIN_IDS else user["id"])
+        return web.json_response({"ok": True})
+
     async def go(_request):
         return web.FileResponse(GO_PAGE, headers={"Cache-Control": "no-cache"})
 
@@ -413,3 +494,8 @@ def make_webapp(app: web.Application, db: RidesDB, notifier) -> None:
     app.router.add_get("/app/api/admin", admin)
     app.router.add_route("DELETE", "/app/api/my/{id:\\d+}", close)
     app.router.add_post("/app/api/report", report)
+    app.router.add_route("POST", "/app/api/admin/post/{id:\\d+}", admin_post)
+    app.router.add_route("DELETE", "/app/api/admin/post/{id:\\d+}", admin_post)
+    app.router.add_get("/app/api/chat", chat)
+    app.router.add_post("/app/api/chat", chat_post)
+    app.router.add_route("DELETE", "/app/api/chat/{id:\\d+}", chat_del)

@@ -127,6 +127,20 @@ a{color:inherit;text-decoration:none}
 .skel{height:120px;border-radius:18px;background:linear-gradient(90deg,var(--sur),var(--sur2),var(--sur));background-size:200% 100%;animation:sk 1.2s infinite;margin-bottom:10px}
 @keyframes sk{to{background-position:-200% 0}}
 .note{font-size:12px;color:var(--mut);margin:8px 4px 0;line-height:1.45}
+.fabrow{position:fixed;left:14px;right:14px;bottom:calc(76px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;z-index:5}
+.fabrow .fab{position:static;flex:1;min-width:0}
+.fabchat{width:54px;flex:none;border-radius:16px;background:var(--sur2);border:1px solid var(--line);font-size:22px;box-shadow:0 8px 24px #000a;position:relative}
+.fabchat i{position:absolute;top:7px;right:8px;width:10px;height:10px;border-radius:50%;background:var(--dan);display:none}
+.fabchat.new i{display:block}
+.chatday{text-align:center;margin:14px 0 8px}.chatday span{font-size:11.5px;color:var(--mut);background:var(--sur);border:1px solid var(--line);padding:4px 10px;border-radius:999px}
+.msg{max-width:84%;margin:0 0 6px;padding:8px 11px 6px;border-radius:14px 14px 14px 4px;background:var(--sur);border:1px solid var(--line);font-size:14px;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.own{margin-left:auto;border-radius:14px 14px 4px 14px;background:var(--accdim);border-color:#6a5717}
+.msg .who{font-size:11.5px;font-weight:700;color:var(--acc);margin-bottom:2px}.msg .who em{font-style:normal;color:var(--cyan);font-weight:600;margin-left:4px}
+.msg .tm{font-size:10.5px;color:var(--mut);text-align:right;margin-top:2px}.msg .tm button{color:var(--mut);margin-left:8px;font-size:11px}
+.chatbar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;align-items:flex-end;background:var(--nav);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));z-index:21}
+.chatbar textarea{flex:1;min-width:0;background:var(--sur);border:1px solid var(--line);border-radius:14px;padding:10px 12px;resize:none;outline:none;font-size:15px;max-height:120px}
+.chatbar button{width:44px;height:44px;border-radius:12px;background:var(--acc);color:var(--onacc);font-size:18px;font-weight:800;flex:none}
+.adm{border-color:var(--accdim)}
 </style>
 </head>
 <body>
@@ -144,7 +158,7 @@ a{color:inherit;text-decoration:none}
   <div class="lbl"><span id="found">Ищу…</span><button id="save-route">⭐ Сохранить маршрут</button></div>
   <div id="list"></div>
 </section>
-<button class="fab" id="fab">📢 Разместить: «Хочу поехать»</button>
+<div class="fabrow" id="fabrow"><button class="fab" id="fab">📢 Разместить: «Хочу поехать»</button><button class="fabchat" id="chat-btn" aria-label="Чат">💬<i></i></button></div>
 
 <!-- ============ МОИ ============ -->
 <section class="view" id="v-my">
@@ -205,6 +219,16 @@ a{color:inherit;text-decoration:none}
 
 <!-- ============ КАРТОЧКА ============ -->
 <section class="over" id="o-detail"></section>
+
+<!-- ============ ЧАТ ============ -->
+<section class="over" id="o-chat">
+  <div class="hdr"><div class="logo">💬</div><div class="t"><b>Чат попутчиков</b><span>Пожелания, вопросы, кто куда едет</span></div></div>
+  <div id="chat-list"></div>
+  <div class="chatbar"><textarea id="chat-in" rows="1" maxlength="500" placeholder="Сообщение…"></textarea><button id="chat-send">➤</button></div>
+</section>
+
+<!-- ============ ИСПРАВИТЬ (админ) ============ -->
+<section class="over" id="o-edit"></section>
 
 <!-- ============ РАЗМЕСТИТЬ ============ -->
 <section class="over" id="o-compose">
@@ -462,7 +486,14 @@ function openDetail(it) {
       <button class="it" id="d-follow"><div class="ic">🔔</div><div class="t"><b>Присылать такие поездки</b><span>${esc(routeOf(it))}</span></div><div class="sw ${following ? 'on' : ''}"></div></button>
       ${it.own ? `<button class="it" id="d-close"><div class="ic">✕</div><div class="t"><b>Снять объявление</b><span>Уже нашли машину или пассажиров</span></div><span class="arr">›</span></button>`
                : `<button class="it" id="d-report"><div class="ic">⚠️</div><div class="t"><b>Пожаловаться</b><span>Не актуально, перевозчик или спам</span></div><span class="arr">›</span></button>`}
-    </div>`;
+    </div>
+    ${S.me && S.me.is_admin && typeof it.id === 'number' ? `<div class="lbl"><span>Только для вас${it.edited ? ' · ✏️ исправлено' : ''}</span></div>
+    <div class="grp adm">
+      <button class="it" id="d-edit"><div class="ic" style="background:var(--accdim)">✏️</div><div class="t"><b>Исправить</b><span>Тип, маршрут, день, время, места, телефон</span></div><span class="arr">›</span></button>
+      <button class="it" id="d-del"><div class="ic" style="background:var(--danbg)">🗑</div><div class="t"><b>Удалить из ленты</b><span>Истекло, не поездка, дубль</span></div><span class="arr">›</span></button>
+    </div>` : ''}`;
+  const ed = $('#d-edit'); if (ed) ed.onclick = () => openEdit(it);
+  const dl = $('#d-del'); if (dl) dl.onclick = () => adminDelete(it);
   $('#d-follow').onclick = async e => {
     const sw = e.currentTarget.querySelector('.sw'); haptic('medium');
     try {
@@ -488,12 +519,117 @@ function openDetail(it) {
   openOver('o-detail');
 }
 
+// ---------- админ: удалить / исправить ----------
+function adminDelete(it) {
+  const go = async reason => {
+    if (!reason) return;
+    try { await api('admin/post/' + it.id, { method: 'DELETE', body: { reason } }); haptic('medium'); toast('🗑 Удалено') } catch (e) { return toast(e.message) }
+    S.items = S.items.filter(x => x.id !== it.id); back(); loadRides();
+  };
+  if (tg && tg.showPopup) tg.showPopup({ title: 'Удалить из ленты', message: 'Почему?', buttons: [
+    { id: 'истекло', type: 'default', text: 'Истекло' }, { id: 'не поездка', type: 'default', text: 'Не поездка' },
+    { id: 'дубль', type: 'destructive', text: 'Дубль' }] }, go);
+  else go('удалено');
+}
+const E = {};
+function openEdit(it) {
+  const iso = it.day || isoDay(0);
+  Object.assign(E, { it, kind: it.kind, from: it.from || '', to: it.to || '', time: it.has_time ? it.time : '',
+    day: iso === isoDay(0) ? 'today' : iso === isoDay(1) ? 'tomorrow' : iso,
+    count: (it.kind === 'driver' ? it.seats : it.people) || 0, phone: it.phone || '' });
+  renderEdit(); openOver('o-edit');
+}
+function renderEdit() {
+  const chips = dayChips(false);
+  if (/^\d{4}-/.test(E.day) && !chips.some(([k]) => k === E.day)) { const [, m, d] = E.day.split('-'); chips.push([E.day, `${d}.${m}`]) }
+  const txt = (E.it.text || E.it.comment || '').trim();
+  $('#o-edit').innerHTML = `
+    <div class="hdr"><div class="t"><b>✏️ Исправить объявление</b><span>Правка попадёт в журнал — по нему улучшу разбор</span></div></div>
+    ${txt ? `<div class="preview" style="max-height:160px;overflow:auto">${esc(txt)}</div>` : ''}
+    <div class="seg" id="e-kind"><button data-k="driver" class="${E.kind === 'driver' ? 'on' : ''}">🚗 Свободная машина</button><button data-k="passenger" class="${E.kind === 'passenger' ? 'on' : ''}">🙋 Ищет машину</button></div>
+    <div class="route">
+      <button class="rf" data-epick="from"><span class="dot" style="background:var(--ok)"></span><div><div class="l">Откуда</div><div class="v${E.from ? '' : ' ph'}">${esc(E.from || 'не указано')}</div></div></button>
+      <button class="rf" data-epick="to"><span class="dot" style="background:var(--dan)"></span><div><div class="l">Куда</div><div class="v${E.to ? '' : ' ph'}">${esc(E.to || 'не указано')}</div></div></button>
+      <button class="swap" id="e-swap">⇅</button>
+    </div>
+    <div class="chips" id="e-days">${chips.map(([k, t]) => `<button class="chip ${E.day === k ? 'on' : ''}" data-eday="${k}">${t}</button>`).join('')}
+      <label class="chip" style="position:relative;overflow:hidden">📅 Дата<input type="date" id="e-date" style="position:absolute;inset:0;opacity:0;width:100%;height:100%"></label></div>
+    <div class="row2"><div class="field"><label>Время (пусто — не указано)</label><input type="time" id="e-time" value="${esc(E.time)}"></div>
+      <div class="field"><label>Телефон</label><input type="tel" id="e-phone" inputmode="tel" value="${esc(E.phone)}"></div></div>
+    <div class="field" style="display:flex;align-items:center;justify-content:space-between"><label>${E.kind === 'driver' ? 'Свободных мест' : 'Человек'} (0 — не указано)</label><div class="stepper"><button id="e-minus">−</button><b id="e-count">${E.count}</b><button id="e-plus">＋</button></div></div>
+    <div class="field"><label>Что было не так (для журнала, необязательно)</label><input id="e-reason" placeholder="Например: это пассажир, а не машина"></div>
+    <button class="fab" id="e-save">💾 Сохранить</button>`;
+  const keep = () => { E.time = $('#e-time').value; E.phone = $('#e-phone').value; E.reason = $('#e-reason').value };
+  $('#e-reason').value = E.reason || '';
+  $('#e-kind').onclick = e => { const b = e.target.closest('[data-k]'); if (!b) return; keep(); E.kind = b.dataset.k; renderEdit() };
+  $('#e-days').onclick = e => { const b = e.target.closest('[data-eday]'); if (!b) return; keep(); E.day = b.dataset.eday; renderEdit() };
+  $('#e-date').onchange = e => { if (e.target.value) { keep(); E.day = e.target.value; renderEdit() } };
+  $('#e-swap').onclick = () => { keep(); [E.from, E.to] = [E.to, E.from]; renderEdit() };
+  $$('[data-epick]').forEach(b => b.onclick = () => { keep(); pickPlace(b.dataset.epick === 'from' ? 'Откуда' : 'Куда', true, v => { E[b.dataset.epick] = v; renderEdit() }) });
+  $('#e-minus').onclick = () => { E.count = Math.max(0, E.count - 1); $('#e-count').textContent = E.count };
+  $('#e-plus').onclick = () => { E.count = Math.min(8, E.count + 1); $('#e-count').textContent = E.count };
+  $('#e-save').onclick = async () => {
+    keep(); haptic('medium');
+    let r;
+    try { r = await api('admin/post/' + E.it.id, { method: 'POST', body: { kind: E.kind, from: E.from, to: E.to, day: E.day, time: E.time, count: E.count, phone: E.phone, reason: E.reason } }) }
+    catch (e) { return toast(e.message) }
+    toast('✅ Исправлено'); back(); openDetail(r.item); loadRides();
+  };
+}
+
+// ---------- чат ----------
+const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+const C = { items: [], canDel: false, timer: null };
+const kdate = ts => new Date(ts * 1000).toLocaleDateString('sv-SE', { timeZone: 'Europe/Chisinau' });
+const ktime = ts => new Date(ts * 1000).toLocaleTimeString('ru-RU', { timeZone: 'Europe/Chisinau', hour: '2-digit', minute: '2-digit' });
+function dayTitle(iso) {
+  if (iso === isoDay(0)) return 'Сегодня';
+  if (iso === isoDay(-1)) return 'Вчера';
+  const [, m, d] = iso.split('-'); return `${+d} ${MONTHS[m - 1]}`;
+}
+function renderChat() {
+  const box = $('#o-chat'), atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  let last = '', html = '';
+  for (const m of C.items) {
+    const d = kdate(m.ts);
+    if (d !== last) { html += `<div class="chatday"><span>${dayTitle(d)}</span></div>`; last = d }
+    const del = (m.own || C.canDel) ? `<button data-cdel="${m.id}">✕</button>` : '';
+    html += `<div class="msg${m.own ? ' own' : ''}">${m.own ? '' : `<div class="who">${esc(m.name)}${m.admin ? '<em>· админ</em>' : ''}</div>`}${esc(m.text)}<div class="tm">${ktime(m.ts)}${del}</div></div>`;
+  }
+  $('#chat-list').innerHTML = html || `<div class="empty"><b>Пока тихо</b>Напишите пожелание или спросите, кто едет — ответят здесь.</div>`;
+  if (atEnd || !C.shown) { box.scrollTop = box.scrollHeight; C.shown = true }
+}
+async function loadChat() {
+  try { const r = await api('chat'); C.items = r.items; C.canDel = r.can_delete } catch { return }
+  const lastId = C.items.length ? C.items[C.items.length - 1].id : 0;
+  if (S.overlays[S.overlays.length - 1] === 'o-chat') { store.set('chat_seen', lastId); renderChat() }
+  $('#chat-btn').classList.toggle('new', lastId > store.get('chat_seen', 0) && !C.items[C.items.length - 1].own);
+}
+function openChat() {
+  haptic(); C.shown = false; openOver('o-chat'); renderChat(); loadChat();
+  clearInterval(C.timer);
+  C.timer = setInterval(() => { if (S.overlays[S.overlays.length - 1] === 'o-chat' && document.visibilityState === 'visible') loadChat(); else if (!S.overlays.includes('o-chat')) clearInterval(C.timer) }, 5000);
+}
+$('#chat-btn').onclick = openChat;
+$('#chat-in').oninput = e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(120, e.target.scrollHeight) + 'px' };
+$('#chat-send').onclick = async () => {
+  const el = $('#chat-in'), text = el.value.trim();
+  if (!text) return;
+  haptic('medium');
+  try { const r = await api('chat', { method: 'POST', body: { text } }); C.items.push(r.item); el.value = ''; el.style.height = 'auto'; store.set('chat_seen', r.item.id); C.shown = false; renderChat() }
+  catch (e) { toast(e.message) }
+};
+$('#chat-list').onclick = async e => {
+  const b = e.target.closest('[data-cdel]'); if (!b) return;
+  try { await api('chat/' + b.dataset.cdel, { method: 'DELETE' }); C.items = C.items.filter(m => m.id !== +b.dataset.cdel); renderChat() } catch (er) { toast(er.message) }
+};
+
 // ---------- оверлеи и кнопка «Назад» ----------
 function openOver(id) {
   $$('.over').forEach(o => o.classList.toggle('on', o.id === id));
   $('#' + id).scrollTop = 0;
   S.overlays = S.overlays.filter(x => x !== id); S.overlays.push(id);
-  $('#fab').style.display = 'none'; $('#nav').style.display = 'none';
+  $('#fabrow').style.display = 'none'; $('#nav').style.display = 'none';
   if (tg) tg.BackButton.show();
 }
 function back() {
@@ -501,7 +637,7 @@ function back() {
   S.overlays.pop();
   const top = S.overlays[S.overlays.length - 1];
   $$('.over').forEach(o => o.classList.toggle('on', o.id === top));
-  if (!top) { $('#nav').style.display = ''; $('#fab').style.display = S.tab === 'search' ? '' : 'none'; if (tg) tg.BackButton.hide() }
+  if (!top) { $('#nav').style.display = ''; $('#fabrow').style.display = S.tab === 'search' ? '' : 'none'; if (tg) tg.BackButton.hide() }
 }
 if (tg) tg.BackButton.onClick(back);
 
@@ -511,7 +647,7 @@ function showTab(t) {
   while (S.overlays.length) back();
   $$('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + t));
   $$('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  $('#fab').style.display = t === 'search' ? '' : 'none';
+  $('#fabrow').style.display = t === 'search' ? '' : 'none';
   if (t === 'my') loadMy();
   if (t === 'notify') renderNotify();
   if (t === 'profile') renderProfile();
@@ -913,6 +1049,7 @@ async function loadMe() { S.me = await api('me') }
     if (!store.get('mode', null)) S.mode = me.role === 'driver' ? 'passenger' : 'driver';
   } catch (e) { $('#list').innerHTML = `<div class="empty"><b>Не удалось войти</b>${esc(e.message)}</div>`; return }
   loadRides();
+  loadChat(); setInterval(() => { if (document.visibilityState === 'visible' && !S.overlays.includes('o-chat')) loadChat() }, 60000);   // красная точка на 💬
   // Открыть конкретную поездку: кнопка «🔎 Открыть» под уведомлением (?p=123) или ссылка с startapp=p123
   const pid = new URLSearchParams(location.search).get('p') || ((tg.initDataUnsafe.start_param || '').match(/^p(\d+)$/) || [])[1];
   if (pid) { try { openDetail((await api('post?id=' + pid)).item) } catch {} }
