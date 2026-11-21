@@ -19,6 +19,9 @@ _PASSENGER_KW = [
     "кто нибудь поедет", "кто-нибудь поедет", "есть кто в ", "есть кто из ", "есть машина",
     "cine merge", "merge cineva", "pleaca cineva",
     "подвезите", "подбросьте", "подвезет", "подкинете", "подкиньте",
+    "может кто подвез", "может кто-то подвез", "может кто то подвез", "кто подвез", "кто может подвез",
+    "может кто подвест", "может кто-то подвест", "может кто то подвест", "кто подвест", "кто может подвест",
+    "кто сможет подвез", "кто сможет подвест", "кто возьмет", "кто возьмёт",
     "возьмите", "заберите", "нужно уехать", "надо уехать", "нужно доехать",
     "надо доехать", "нужно добраться", "надо добраться", "хочу уехать",
     "caut masin", "caut transport", "caut loc", "caut sofer", "caut o masin",
@@ -225,7 +228,11 @@ def parse_message(text: str) -> Parsed:
         if m:
             p.seats = int(m.group(1))
 
-    pass_score = sum(kw in norm for kw in _PASSENGER_KW) + (1 if p.people else 0) + (2 if need else 0)
+    # «Может кто-то завтра подвезти…», «кто сможет подбросить» — просьба пассажира, даже со словами между
+    ask = re.search(r"\bкто[\s-]*(?:то|нибудь)?\b[^.!?\n]{0,40}?\b(?:подвез|подвест|подброс|подкин|возьм[её]т|забер[её]т)", norm)
+    pass_score = sum(kw in norm for kw in _PASSENGER_KW) + (1 if p.people else 0) + (2 if need else 0) + (2 if ask else 0)
+    if ask and p.seats and not p.people:
+        p.people, p.seats = p.seats, None   # «1 место» здесь — сколько нужно, а не свободные места
     drv_score = sum(kw in norm for kw in _DRIVER_KW) + (1 if p.seats else 0)
     ad_score = sum(kw in norm for kw in _AD_KW) + len(_PHONE_RE.findall(norm))
     p.is_ad = ad_score >= 2 or (ad_score >= 1 and len(text) > 300)
