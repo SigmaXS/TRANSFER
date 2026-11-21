@@ -341,7 +341,7 @@ async def fixes_log(msg: Message, rides_db: RidesDB, command: CommandObject):
     out = []
     for r in rows:
         r = dict(r)
-        for k in ("before", "after"):
+        for k in ("before_data", "after_data"):
             if isinstance(r.get(k), str):
                 r[k] = json.loads(r[k])
         r["time"] = datetime.fromtimestamp(r["ts"], TZ).strftime("%Y-%m-%d %H:%M")

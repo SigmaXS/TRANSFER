@@ -107,8 +107,8 @@ CREATE TABLE IF NOT EXISTS ride_fixes (
     action TEXT,                 -- 'edit' | 'delete'
     reason TEXT,
     text TEXT,                   -- исходный текст объявления
-    before JSONB,
-    after JSONB
+    before_data JSONB,
+    after_data JSONB
 );
 CREATE INDEX IF NOT EXISTS ride_posts_live ON ride_posts (kind, expires_at);
 
@@ -407,7 +407,7 @@ class RidesDB:
     async def _log_fix(self, admin_id: int, old: dict, action: str, reason: str | None, new: dict | None):
         pick = lambda d: {k: d.get(k) for k in self.FIX_KEYS} if d else None  # noqa: E731
         await self.pool.execute(
-            "INSERT INTO ride_fixes (ts, admin_id, post_id, action, reason, text, before, after)"
+            "INSERT INTO ride_fixes (ts, admin_id, post_id, action, reason, text, before_data, after_data)"
             " VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb)",
             time.time(), admin_id, old["id"], action, reason, old.get("text") or old.get("comment"),
             json.dumps(pick(old), ensure_ascii=False), json.dumps(pick(new), ensure_ascii=False) if new else None)
