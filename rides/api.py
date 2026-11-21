@@ -21,7 +21,8 @@ from .places import PLACES, POPULAR, RO_NAMES, resolve_place
 from .posts import post_to_parsed, viber_group_link
 from .timeparse import TZ, trip_label
 
-_PHONE_RE = re.compile(r"(?:\+?373[\s-]?|\b0)\d{2}[\s-]?\d{2,3}[\s-]?\d{2,3}|\b77\d{5,6}\b|\b[56]\d{6}\b")
+# «069 123 456», «0 61 039 793» (пробел после нуля), «+373 69…», ПМР «777 12345»
+_PHONE_RE = re.compile(r"(?:\+?373[\s-]?|\b0[\s-]?)\d{2}[\s-]?\d{2,3}[\s-]?\d{2,3}|\b77\d{5,6}\b|\b[56]\d{6}\b")
 
 
 def _api_key() -> str:
@@ -40,8 +41,11 @@ def _spec(raw: str | None) -> str | None:
 def _phone(post: dict) -> str | None:
     if post.get("phone"):
         return post["phone"]
-    m = _PHONE_RE.search(post.get("text") or "")
-    return re.sub(r"[\s-]", "", m.group(0)) if m else None
+    for m in _PHONE_RE.finditer(post.get("text") or ""):
+        ph = re.sub(r"[\s-]", "", m.group(0))
+        if not ph.startswith("0") or len(ph) == 9:   # 0 + 8 цифр; «0 12 15 20» — не номер
+            return ph
+    return None
 
 
 def _item(p: dict) -> dict:

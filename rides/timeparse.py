@@ -7,6 +7,7 @@ TZ = ZoneInfo("Europe/Chisinau")
 NOW_HOURS = 2       # «сейчас», «срочно», «на ближайшее время»
 DEFAULT_HOURS = 4   # время не указано
 AFTER_TRIP = 1      # сколько ещё держать заявку после указанного времени отъезда
+RELATIVE_AFTER = 2  # «через час» — время примерное, держим подольше
 
 
 def _end_of_day(d: date) -> datetime:
@@ -20,13 +21,17 @@ def _gone(d: date) -> tuple[float, float, bool]:
 
 
 def trip_window(when: str | None, date_str: str | None, time_str: str | None,
-                posted: datetime) -> tuple[float, float, bool]:
+                posted: datetime, in_min: int | None = None) -> tuple[float, float, bool]:
     """(время поездки, до какого момента показывать, известно ли точное время) — в unix-секундах.
 
     «на 19 часов», написанное в 15:00, будет видно до 20:00. Написанное вчера «завтра в 7:00» —
     сегодня до 8:00. Без времени и даты заявка живёт 4 часа, «сейчас» — 2 часа.
+    «Выезжаю через час» без точного времени — выезд через час после сообщения, видно ещё 2 часа после.
     """
     posted = posted.astimezone(TZ)
+    if in_min and not time_str and when not in ("завтра", "послезавтра"):
+        trip = posted + timedelta(minutes=in_min)
+        return trip.timestamp(), (trip + timedelta(hours=RELATIVE_AFTER)).timestamp(), True
     day, explicit_day = None, False
     if date_str:
         try:

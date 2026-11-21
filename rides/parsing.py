@@ -99,6 +99,7 @@ class Parsed:
     seats: int | None = None
     is_ad: bool = False
     fingerprint: str = ""
+    in_min: int | None = None    # «выезжаю через час» — через сколько минут после сообщения
 
     @property
     def regions(self) -> set[str]:
@@ -146,11 +147,32 @@ def _route(norm: str):
     return frm, to, uniq
 
 
+_REL_NUM = {"пару": 2, "пара": 2, "два": 2, "две": 2, "три": 3, "один": 1, "одну": 1, "полтора": 1.5}
+_REL_RE = re.compile(r"\bчерез\s+мин\w*\s+(?P<n2>\d{1,3})"
+                     r"|\bчерез\s+(?:(?P<n>\d{1,3}|пару|пара|два|две|три|один|одну|полтора)\s*-?\s*)?(?P<u>полчаса|час\w*|мин\w*)")
+
+
+def _relative(norm: str) -> int | None:
+    """«через час» → 60, «через 2 часа» → 120, «через полчаса» → 30, «через 40 минут» / «через минут 40» → 40."""
+    m = _REL_RE.search(norm)
+    if not m:
+        return None
+    if m.group("n2"):
+        return int(m.group("n2"))
+    raw, unit = m.group("n"), m.group("u")
+    if unit == "полчаса":
+        return 30
+    n = float(raw) if raw and raw.isdigit() else _REL_NUM.get(raw or "", 1)
+    mins = int(n * 60) if unit.startswith("час") else int(n)
+    return mins if 0 < mins <= 12 * 60 else None
+
+
 def _when(norm: str, p: Parsed):
     for word, label in _WHEN_WORDS.items():
         if re.search(r"(?<!\w)" + word + r"(?!\w)", norm):
             p.when = label
             break
+    p.in_min = _relative(norm)
     for m in _TIME_RE.finditer(norm):
         sep = norm[m.start(2) - 1]
         before = _last_words(norm, m.start(), 1)

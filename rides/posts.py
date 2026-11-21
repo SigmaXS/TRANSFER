@@ -17,7 +17,7 @@ from .timeparse import TZ, ago, trip_label, trip_window
 
 def post_from_group(p: Parsed, *, chat: str, link: str | None, posted: datetime,
                     author_id: int | None, username: str | None, name: str | None) -> dict:
-    trip_at, expires_at, has_time = trip_window(p.when, p.date, p.time, posted)
+    trip_at, expires_at, has_time = trip_window(p.when, p.date, p.time, posted, p.in_min)
     day = posted.astimezone(TZ).strftime("%Y-%m-%d")
     return {
         "ts": posted.timestamp(), "source": "group", "chat": chat, "link": link,

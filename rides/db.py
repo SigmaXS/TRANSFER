@@ -461,7 +461,7 @@ class RidesDB:
             p = parse_message(r["text"])
             kind = p.kind or r["kind"]
             # Время и дата тоже заново: «выезд 9.00», «17.00-17.30», «в течении часа»
-            trip_at, expires_at, has_time = trip_window(p.when, p.date, p.time, datetime.fromtimestamp(r["ts"], TZ))
+            trip_at, expires_at, has_time = trip_window(p.when, p.date, p.time, datetime.fromtimestamp(r["ts"], TZ), p.in_min)
             if (kind, p.people, p.seats, has_time, p.when) != (r["kind"], r["people"], r["seats"], r["has_time"], r["when_label"]) \
                     or abs((r["trip_at"] or 0) - trip_at) > 60:
                 await self.pool.execute(
